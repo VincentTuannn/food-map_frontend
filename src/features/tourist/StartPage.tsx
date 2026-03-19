@@ -26,18 +26,18 @@ export function StartPage() {
 
   async function requestLocation() {
     if (!canGeo) {
-      showToast({ title: 'Thiết bị không hỗ trợ GPS', message: 'Hãy thử trên mobile Chrome/Safari.' })
+      showToast({ title: t('tourist.start.noGpsTitle'), message: t('tourist.start.noGpsDesc') })
       return
     }
 
     // trigger permission prompt
     navigator.geolocation.getCurrentPosition(
       () => {
-        showToast({ title: 'Đã bật GPS', message: 'Chuyển sang bản đồ…' })
+        showToast({ title: t('tourist.start.gpsOkTitle'), message: t('tourist.start.gpsOkDesc') })
         nav('/tourist/map')
       },
       () => {
-        showToast({ title: 'Chưa cấp quyền vị trí', message: 'Vui lòng bật Location để dùng bản đồ.' })
+        showToast({ title: t('tourist.start.gpsDeniedTitle'), message: t('tourist.start.gpsDeniedDesc') })
       },
       { enableHighAccuracy: true, timeout: 10_000 },
     )
@@ -53,7 +53,7 @@ export function StartPage() {
               {t('tourist.start.subtitle')}
             </div>
           </div>
-          <span className="pill">PWA · Mobile-first</span>
+          <span className="pill">{t('tourist.start.pwaPill')}</span>
         </div>
 
         <div className="hr" />
@@ -65,21 +65,21 @@ export function StartPage() {
               className="input"
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              placeholder="VD: HN-OLDQUARTER"
+              placeholder={`${t('tourist.start.example')} HN-OLDQUARTER`}
             />
             <div style={{ marginTop: 10 }} className="row">
               <button
                 className="btn btnPrimary"
                 onClick={() => {
                   setTourCode(code.trim() || undefined)
-                  showToast({ title: 'Đã lưu tour', message: 'Bạn có thể mở Map để xem POI.' })
+                  showToast({ title: t('tourist.start.tourSavedTitle'), message: t('tourist.start.tourSavedDesc') })
                 }}
               >
                 {t('tourist.start.saveTour')}
               </button>
               <button
                 className="btn"
-                onClick={() => showToast({ title: 'Quét QR (TODO)', message: 'Tích hợp camera sau (getUserMedia).' })}
+                onClick={() => showToast({ title: t('tourist.start.qrDemoTitle'), message: t('tourist.start.qrDemoDesc') })}
               >
                 {t('tourist.start.scanQr')}
               </button>
@@ -123,14 +123,14 @@ export function StartPage() {
                 className="btn"
                 onClick={() => {
                   setRadiusMeters(radius)
-                  showToast({ title: `Đã set bán kính ${radius}m` })
+                  showToast({ title: t('tourist.start.radiusSet', { radius }) })
                 }}
               >
                 {t('tourist.start.apply')}
               </button>
             </div>
             <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 6 }}>
-              (Trong thực tế admin cấu hình; ở demo cho bạn chỉnh nhanh.)
+              {t('tourist.start.radiusDesc')}
             </div>
           </div>
 
@@ -145,7 +145,7 @@ export function StartPage() {
               </button>
             </div>
             <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 6 }}>
-              Hệ thống sẽ tự phát “audio/text” khi bạn vào vùng POI.
+              {t('tourist.start.gpsDesc')}
             </div>
           </div>
         </div>

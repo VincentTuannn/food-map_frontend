@@ -59,7 +59,7 @@ export function MapPage() {
     lastTriggerRef.current = nearby.p.id
 
     const msg = language === 'vi' ? nearby.p.short.vi : language === 'ja' ? nearby.p.short.ja : nearby.p.short.en
-    showToast({ title: `Bạn đang gần: ${nearby.p.name}`, message: msg })
+    showToast({ title: `${t('tourist.map.nearByToast')}${nearby.p.name}`, message: msg })
 
     if (ttsOn) {
       const speechLang = language === 'vi' ? 'vi-VN' : language === 'ja' ? 'ja-JP' : 'en-US'
@@ -120,12 +120,12 @@ export function MapPage() {
 
         <div className="card cardPad" style={{ background: 'rgba(255,255,255,0.06)' }}>
           <div className="rowBetween">
-            <div style={{ fontWeight: 800 }}>Directions (Mapbox-ready)</div>
+            <div style={{ fontWeight: 800 }}>{t('tourist.map.directionsTitle')}</div>
             <div className="row">
               <select className="select" value={profile} onChange={(e) => setProfile(e.target.value as DirectionsProfile)}>
-                <option value="walking">Walking</option>
-                <option value="driving">Driving</option>
-                <option value="cycling">Cycling</option>
+                <option value="walking">{t('tourist.map.walking')}</option>
+                <option value="driving">{t('tourist.map.driving')}</option>
+                <option value="cycling">{t('tourist.map.cycling')}</option>
               </select>
               <button
                 className="btn"
@@ -139,7 +139,7 @@ export function MapPage() {
                   setRoute(mockDirections({ from: position, to, profile }))
                 }}
               >
-                Mock route
+                {t('tourist.map.mockRoute')}
               </button>
             </div>
           </div>

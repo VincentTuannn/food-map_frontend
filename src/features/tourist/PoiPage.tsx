@@ -49,7 +49,7 @@ export function PoiPage() {
 
         <div className="grid2">
           <div className="card cardPad">
-            <div style={{ fontWeight: 900, marginBottom: 8 }}>Menu nổi bật</div>
+            <div style={{ fontWeight: 900, marginBottom: 8 }}>{t('tourist.poi.menuHighlights')}</div>
             <div style={{ display: 'grid', gap: 8 }}>
               {poi.menuHighlights.map((x) => (
                 <div key={x} className="pill" style={{ justifyContent: 'space-between' }}>
@@ -61,14 +61,14 @@ export function PoiPage() {
             <div style={{ height: 10 }} />
             <button
               className="btn"
-              onClick={() => showToast({ title: 'Xem menu (demo)', message: 'Thực tế mở trang menu / PDF / in-app.' })}
+              onClick={() => showToast({ title: t('tourist.poi.viewMenuDemoTitle'), message: t('tourist.poi.viewMenuDemoDesc') })}
             >
-              Xem toàn bộ menu
+              {t('tourist.poi.viewMenu')}
             </button>
           </div>
 
           <div className="card cardPad">
-            <div style={{ fontWeight: 900, marginBottom: 8 }}>Khuyến mãi / Voucher</div>
+            <div style={{ fontWeight: 900, marginBottom: 8 }}>{t('tourist.poi.voucherTitle')}</div>
             {poi.voucher ? (
               <>
                 <div className="pill" style={{ justifyContent: 'space-between', width: '100%' }}>
@@ -83,25 +83,25 @@ export function PoiPage() {
                   onClick={async () => {
                     try {
                       await navigator.clipboard.writeText(poi.voucher!.code)
-                      showToast({ title: 'Đã copy mã', message: poi.voucher!.code })
+                      showToast({ title: t('tourist.poi.copySuccess'), message: poi.voucher!.code })
                     } catch {
-                      showToast({ title: 'Copy thất bại', message: poi.voucher!.code })
+                      showToast({ title: t('tourist.poi.copyFailed'), message: poi.voucher!.code })
                     }
                   }}
                 >
-                  Copy mã giảm giá
+                  {t('tourist.poi.copyVoucher')}
                 </button>
               </>
             ) : (
-              <div style={{ color: 'var(--muted)' }}>Hiện chưa có voucher.</div>
+              <div style={{ color: 'var(--muted)' }}>{t('tourist.poi.noVoucher')}</div>
             )}
 
             <div style={{ height: 10 }} />
             <button
               className="btn"
-              onClick={() => showToast({ title: 'Điều hướng (demo)', message: 'Thực tế deep-link Google Maps/Apple Maps.' })}
+              onClick={() => showToast({ title: t('tourist.poi.navigateDemoTitle'), message: t('tourist.poi.navigateDemoDesc') })}
             >
-              Điều hướng đến đây
+              {t('tourist.poi.navigateTo')}
             </button>
           </div>
         </div>
@@ -110,9 +110,9 @@ export function PoiPage() {
 
         <div className="card cardPad">
           <div className="rowBetween">
-            <div style={{ fontWeight: 900 }}>Reviews</div>
-            <button className="btn" onClick={() => showToast({ title: 'Viết review (demo)' })}>
-              Viết review
+            <div style={{ fontWeight: 900 }}>{t('tourist.poi.reviewsTitle')}</div>
+            <button className="btn" onClick={() => showToast({ title: t('tourist.poi.writeReviewDemo') })}>
+              {t('tourist.poi.writeReview')}
             </button>
           </div>
           <div style={{ height: 10 }} />

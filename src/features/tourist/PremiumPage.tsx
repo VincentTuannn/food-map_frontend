@@ -1,45 +1,47 @@
 import { useState } from 'react'
 import { useAppStore } from '../../shared/store/appStore'
 import { AppShell } from '../../shared/ui/AppShell'
+import { useT } from '../../shared/i18n/useT'
 
 type Plan = { id: string; name: string; price: string; perks: string[] }
 
-const PLANS: Plan[] = [
-  {
-    id: 'pro-tour',
-    name: 'Pro Tour',
-    price: '49.000đ',
-    perks: ['Mở khóa POI nâng cao', 'Offline cache (audio/text)', 'Không quảng cáo'],
-  },
-  {
-    id: 'celebrity-voice',
-    name: 'Celebrity Voice',
-    price: '79.000đ',
-    perks: ['Giọng đọc chất lượng cao', 'Tự động phát khi vào bán kính', 'Ưu tiên tải nhanh'],
-  },
-  {
-    id: 'ai-voice',
-    name: 'AI Voice+',
-    price: '29.000đ',
-    perks: ['TTS đa ngôn ngữ', 'Tùy chỉnh tốc độ/giọng', 'Chất lượng ổn định'],
-  },
-]
-
 export function PremiumPage() {
   const showToast = useAppStore((s) => s.showToast)
+  const t = useT()
   const [selected, setSelected] = useState<string>('pro-tour')
+
+  const PLANS: Plan[] = [
+    {
+      id: 'pro-tour',
+      name: t('tourist.premium.plan1.name'),
+      price: '49.000đ',
+      perks: t('tourist.premium.plan1.perks').split('|'),
+    },
+    {
+      id: 'celebrity-voice',
+      name: t('tourist.premium.plan2.name'),
+      price: '79.000đ',
+      perks: t('tourist.premium.plan2.perks').split('|'),
+    },
+    {
+      id: 'ai-voice',
+      name: t('tourist.premium.plan3.name'),
+      price: '29.000đ',
+      perks: t('tourist.premium.plan3.perks').split('|'),
+    },
+  ]
 
   return (
     <AppShell>
       <div className="card cardPad">
         <div className="rowBetween">
           <div>
-            <div style={{ fontSize: 18, fontWeight: 900 }}>Premium</div>
+            <div style={{ fontSize: 18, fontWeight: 900 }}>{t('tourist.premium.title')}</div>
             <div style={{ color: 'var(--muted)', fontSize: 13 }}>
-              UI demo cho luồng thanh toán. Tích hợp cổng thanh toán sẽ làm ở backend + redirect.
+              {t('tourist.premium.subtitle')}
             </div>
           </div>
-          <span className="pill">Payment (mock)</span>
+          <span className="pill">{t('tourist.premium.paymentMock')}</span>
         </div>
 
         <div className="hr" />
@@ -68,12 +70,12 @@ export function PremiumPage() {
         <div className="row">
           <button
             className="btn btnPrimary"
-            onClick={() => showToast({ title: 'Thanh toán (demo)', message: `Plan: ${selected}` })}
+            onClick={() => showToast({ title: t('tourist.premium.payDemo'), message: `Plan: ${selected}` })}
           >
-            Mua ngay
+            {t('tourist.premium.buyNow')}
           </button>
-          <button className="btn" onClick={() => showToast({ title: 'Khôi phục giao dịch (demo)' })}>
-            Restore
+          <button className="btn" onClick={() => showToast({ title: t('tourist.premium.restoreDemo') })}>
+            {t('tourist.premium.restore')}
           </button>
         </div>
       </div>

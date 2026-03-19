@@ -1,28 +1,30 @@
 import { NavLink } from 'react-router-dom'
+import { useT } from '../i18n/useT'
 
 function tabClass(isActive: boolean) {
   return `navLink ${isActive ? 'navLinkActive' : ''}`
 }
 
 export function BottomNav() {
+  const t = useT()
   return (
     <nav className="bottomNav" aria-label="Bottom navigation">
       <div className="bottomNavInner">
         <NavLink to="/tourist/map" className={({ isActive }) => tabClass(isActive)}>
           <span style={{ fontSize: 16 }}>🗺️</span>
-          Map
+          {t('nav.map')}
         </NavLink>
         <NavLink to="/tourist/poi/pho-minh" className={({ isActive }) => tabClass(isActive)}>
           <span style={{ fontSize: 16 }}>📍</span>
-          POI
+          {t('nav.poi')}
         </NavLink>
         <NavLink to="/tourist/premium" className={({ isActive }) => tabClass(isActive)}>
           <span style={{ fontSize: 16 }}>✨</span>
-          Premium
+          {t('nav.premium')}
         </NavLink>
         <NavLink to="/tourist/start" className={({ isActive }) => tabClass(isActive)}>
           <span style={{ fontSize: 16 }}>👤</span>
-          Start
+          {t('nav.start')}
         </NavLink>
       </div>
     </nav>
