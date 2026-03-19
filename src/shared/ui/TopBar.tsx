@@ -1,10 +1,12 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store/appStore'
+import { useT } from '../i18n/useT'
 
 export function TopBar() {
   const nav = useNavigate()
   const location = useLocation()
-  const { language, radiusMeters } = useAppStore()
+  const { language, radiusMeters, theme, setTheme } = useAppStore()
+  const t = useT()
 
   const canGoBack = location.pathname !== '/tourist/start'
   const area = location.pathname.startsWith('/admin')
@@ -22,18 +24,25 @@ export function TopBar() {
               ←
             </button>
           ) : (
-            <span className="pill">QR → Map</span>
+            <span className="pill">{t('top.qrToMap')}</span>
           )}
           <div className="brand">
-            <div className="brandTitle">Tour Guide</div>
+            <div className="brandTitle">{t('app.name')}</div>
             <div className="brandSub">
               {area} · Lang: {language.toUpperCase()} · Radius: {radiusMeters}m
             </div>
           </div>
         </div>
         <div className="row">
+          <button
+            className="btn btnGhost"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            aria-label="Toggle theme"
+          >
+            {theme === 'dark' ? '🌙' : '☀️'}
+          </button>
           <button className="btn btnGhost" onClick={() => nav('/tourist/premium')}>
-            Premium
+            {t('top.premium')}
           </button>
         </div>
       </div>

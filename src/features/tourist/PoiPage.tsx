@@ -3,12 +3,14 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { POIS } from '../../shared/mock/pois'
 import { useAppStore } from '../../shared/store/appStore'
 import { AppShell } from '../../shared/ui/AppShell'
+import { useT } from '../../shared/i18n/useT'
 
 export function PoiPage() {
   const nav = useNavigate()
   const { poiId } = useParams()
   const language = useAppStore((s) => s.language)
   const showToast = useAppStore((s) => s.showToast)
+  const t = useT()
 
   const poi = useMemo(() => POIS.find((p) => p.id === poiId), [poiId])
 
@@ -16,11 +18,11 @@ export function PoiPage() {
     return (
       <AppShell>
         <div className="card cardPad">
-          <div style={{ fontWeight: 800 }}>Không tìm thấy POI</div>
+          <div style={{ fontWeight: 800 }}>{t('tourist.poi.notFound')}</div>
           <div style={{ color: 'var(--muted)', marginTop: 6 }}>ID: {poiId}</div>
           <div style={{ height: 12 }} />
           <button className="btn btnPrimary" onClick={() => nav('/tourist/map')}>
-            Quay lại Map
+            {t('tourist.poi.backToMap')}
           </button>
         </div>
       </AppShell>

@@ -4,6 +4,9 @@ import { distanceMeters } from '../../shared/lib/geo'
 import { POIS } from '../../shared/mock/pois'
 import { useAppStore } from '../../shared/store/appStore'
 import { AppShell } from '../../shared/ui/AppShell'
+import { useT } from '../../shared/i18n/useT'
+import type { DirectionsProfile, DirectionsRoute } from '../../api/services/directions'
+import { mockDirections } from '../../api/mocks/directions.mock'
 
 function speak(text: string, lang: string) {
   if (!('speechSynthesis' in window)) return
@@ -20,8 +23,11 @@ export function MapPage() {
   const position = useAppStore((s) => s.position)
   const setPosition = useAppStore((s) => s.setPosition)
   const showToast = useAppStore((s) => s.showToast)
+  const t = useT()
 
   const [ttsOn, setTtsOn] = useState(true)
+  const [profile, setProfile] = useState<DirectionsProfile>('walking')
+  const [route, setRoute] = useState<DirectionsRoute | undefined>(undefined)
   const lastTriggerRef = useRef<string | undefined>(undefined)
 
   useEffect(() => {
@@ -66,13 +72,15 @@ export function MapPage() {
       <div className="card cardPad">
         <div className="rowBetween">
           <div>
-            <div style={{ fontSize: 18, fontWeight: 800 }}>Bản đồ & POI lân cận</div>
+            <div style={{ fontSize: 18, fontWeight: 800 }}>{t('tourist.map.title')}</div>
             <div style={{ color: 'var(--muted)', fontSize: 13 }}>
-              Ở demo này mình dùng “map giả” + geolocation thật (nếu bạn bật GPS).
+              {t('tourist.map.subtitle')}
             </div>
           </div>
           <div className="row">
-            <span className="pill">{position ? `${position.lat.toFixed(5)}, ${position.lng.toFixed(5)}` : 'No GPS'}</span>
+            <span className="pill">
+              {position ? `${position.lat.toFixed(5)}, ${position.lng.toFixed(5)}` : t('tourist.map.noGps')}
+            </span>
             <button className={`btn ${ttsOn ? 'btnPrimary' : ''}`} onClick={() => setTtsOn((v) => !v)}>
               TTS {ttsOn ? 'ON' : 'OFF'}
             </button>
@@ -110,11 +118,58 @@ export function MapPage() {
 
         <div style={{ height: 12 }} />
 
+        <div className="card cardPad" style={{ background: 'rgba(255,255,255,0.06)' }}>
+          <div className="rowBetween">
+            <div style={{ fontWeight: 800 }}>Directions (Mapbox-ready)</div>
+            <div className="row">
+              <select className="select" value={profile} onChange={(e) => setProfile(e.target.value as DirectionsProfile)}>
+                <option value="walking">Walking</option>
+                <option value="driving">Driving</option>
+                <option value="cycling">Cycling</option>
+              </select>
+              <button
+                className="btn"
+                onClick={() => {
+                  if (!position) {
+                    showToast({ title: t('tourist.map.noGps') })
+                    return
+                  }
+                  // For now we mock directions. Later swap to getDirections() from src/api/services/directions.ts
+                  const to = { lat: POIS[0].lat, lng: POIS[0].lng }
+                  setRoute(mockDirections({ from: position, to, profile }))
+                }}
+              >
+                Mock route
+              </button>
+            </div>
+          </div>
+          {route ? (
+            <>
+              <div style={{ height: 10 }} />
+              <div className="row" style={{ flexWrap: 'wrap' }}>
+                <span className="pill">~ {Math.round(route.distanceMeters)} m</span>
+                <span className="pill">~ {Math.round(route.durationSeconds / 60)} min</span>
+              </div>
+              <div style={{ height: 10 }} />
+              <div style={{ display: 'grid', gap: 8 }}>
+                {route.steps.map((s, i) => (
+                  <div key={i} className="pill" style={{ justifyContent: 'space-between' }}>
+                    <span>{s.instruction}</span>
+                    <span>{Math.round(s.distanceMeters)}m</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : null}
+        </div>
+
+        <div style={{ height: 12 }} />
+
         <div className="card" style={{ borderRadius: 16, overflow: 'hidden' }}>
           <div className="cardPad">
             <div className="rowBetween">
-              <div style={{ fontWeight: 800 }}>Danh sách gần bạn</div>
-              <span className="pill">Trigger ≤ {radiusMeters}m</span>
+              <div style={{ fontWeight: 800 }}>{t('tourist.map.nearbyList')}</div>
+              <span className="pill">{t('tourist.map.triggerUnder', { radius: radiusMeters })}</span>
             </div>
 
             <div style={{ height: 10 }} />

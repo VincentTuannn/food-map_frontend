@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore, type Language } from '../../shared/store/appStore'
 import { AppShell } from '../../shared/ui/AppShell'
+import { useT } from '../../shared/i18n/useT'
 
 const LANGS: Array<{ id: Language; label: string; sub: string }> = [
   { id: 'vi', label: 'Tiếng Việt', sub: 'Thuyết minh tiếng Việt' },
@@ -15,6 +16,7 @@ export function StartPage() {
   const setLanguage = useAppStore((s) => s.setLanguage)
   const setTourCode = useAppStore((s) => s.setTourCode)
   const showToast = useAppStore((s) => s.showToast)
+  const t = useT()
 
   const [code, setCode] = useState('HN-OLDQUARTER')
   const [radius, setRadius] = useState(80)
@@ -46,9 +48,9 @@ export function StartPage() {
       <div className="card cardPad">
         <div className="rowBetween">
           <div>
-            <div style={{ fontSize: 18, fontWeight: 800 }}>Bắt đầu hành trình</div>
+            <div style={{ fontSize: 18, fontWeight: 800 }}>{t('tourist.start.title')}</div>
             <div style={{ color: 'var(--muted)', fontSize: 13 }}>
-              Demo PWA: nhập mã tour (hoặc quét QR ở bước tích hợp camera).
+              {t('tourist.start.subtitle')}
             </div>
           </div>
           <span className="pill">PWA · Mobile-first</span>
@@ -58,7 +60,7 @@ export function StartPage() {
 
         <div className="grid2">
           <div>
-            <div style={{ fontWeight: 700, marginBottom: 8 }}>Mã tour / QR code</div>
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>{t('tourist.start.tourCode')}</div>
             <input
               className="input"
               value={code}
@@ -73,19 +75,19 @@ export function StartPage() {
                   showToast({ title: 'Đã lưu tour', message: 'Bạn có thể mở Map để xem POI.' })
                 }}
               >
-                Lưu mã tour
+                {t('tourist.start.saveTour')}
               </button>
               <button
                 className="btn"
                 onClick={() => showToast({ title: 'Quét QR (TODO)', message: 'Tích hợp camera sau (getUserMedia).' })}
               >
-                Quét QR
+                {t('tourist.start.scanQr')}
               </button>
             </div>
           </div>
 
           <div>
-            <div style={{ fontWeight: 700, marginBottom: 8 }}>Ngôn ngữ ưu tiên</div>
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>{t('tourist.start.lang')}</div>
             <div className="grid2">
               {LANGS.map((l) => (
                 <button
@@ -107,7 +109,7 @@ export function StartPage() {
 
         <div className="grid2">
           <div>
-            <div style={{ fontWeight: 700, marginBottom: 8 }}>Bán kính kích hoạt POI</div>
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>{t('tourist.start.radius')}</div>
             <div className="row">
               <input
                 className="input"
@@ -124,7 +126,7 @@ export function StartPage() {
                   showToast({ title: `Đã set bán kính ${radius}m` })
                 }}
               >
-                Áp dụng
+                {t('tourist.start.apply')}
               </button>
             </div>
             <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 6 }}>
@@ -133,13 +135,13 @@ export function StartPage() {
           </div>
 
           <div>
-            <div style={{ fontWeight: 700, marginBottom: 8 }}>GPS & điều hướng</div>
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>{t('tourist.start.gps')}</div>
             <div className="row">
               <button className="btn btnPrimary" onClick={requestLocation}>
-                Cấp quyền vị trí
+                {t('tourist.start.requestLocation')}
               </button>
               <button className="btn" onClick={() => nav('/tourist/map')}>
-                Mở Map (demo)
+                {t('tourist.start.openMap')}
               </button>
             </div>
             <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 6 }}>

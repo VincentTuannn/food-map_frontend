@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { App } from './App'
+import { useAppStore } from './shared/store/appStore'
 import './style.css'
 
 if ('serviceWorker' in navigator) {
@@ -11,6 +12,14 @@ if ('serviceWorker' in navigator) {
     })
   })
 }
+
+function applyTheme() {
+  const theme = useAppStore.getState().theme
+  document.documentElement.dataset.theme = theme
+}
+
+applyTheme()
+useAppStore.subscribe(applyTheme)
 
 ReactDOM.createRoot(document.querySelector<HTMLDivElement>('#app')!).render(
   <React.StrictMode>
