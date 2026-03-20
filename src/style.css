@@ -193,6 +193,10 @@ a {
   padding: 10px 12px;
   outline: none;
 }
+.select option {
+  background: var(--bg);
+  color: var(--text);
+}
 .textarea {
   min-height: 92px;
   resize: vertical;

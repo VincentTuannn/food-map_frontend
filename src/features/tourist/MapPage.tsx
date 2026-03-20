@@ -7,6 +7,31 @@ import { AppShell } from '../../shared/ui/AppShell'
 import { useT } from '../../shared/i18n/useT'
 import type { DirectionsProfile, DirectionsRoute } from '../../api/services/directions'
 import { mockDirections } from '../../api/mocks/directions.mock'
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
+
+const customIcon = L.divIcon({
+  className: 'custom-leaflet-icon',
+  html: `<div style="background-color: #ef4444; width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+  iconSize: [20, 20],
+  iconAnchor: [10, 10],
+})
+
+const myPosIcon = L.divIcon({
+  className: 'custom-leaflet-icon',
+  html: `<div style="background-color: #3b82f6; width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+  iconSize: [20, 20],
+  iconAnchor: [10, 10],
+})
+
+function MapController({ position }: { position: { lat: number; lng: number } }) {
+  const map = useMap()
+  useEffect(() => {
+    map.flyTo(position, map.getZoom())
+  }, [position, map])
+  return null
+}
 
 function speak(text: string, lang: string) {
   if (!('speechSynthesis' in window)) return
@@ -89,31 +114,34 @@ export function MapPage() {
 
         <div style={{ height: 12 }} />
 
-        <div className="mapFake" aria-label="Map (mock)">
-          <div className="mapDot" title="You" />
-
-          {/* Fake marker positions for demo layout */}
-          <button
-            className="poiMarker"
-            style={{ left: '16%', top: '24%' }}
-            onClick={() => nav('/tourist/poi/pho-minh')}
-          >
-            Phở
-          </button>
-          <button
-            className="poiMarker"
-            style={{ left: '68%', top: '30%' }}
-            onClick={() => nav('/tourist/poi/ca-phe-pho-co')}
-          >
-            Cà phê
-          </button>
-          <button
-            className="poiMarker"
-            style={{ left: '42%', top: '70%' }}
-            onClick={() => nav('/tourist/poi/bun-cha-34')}
-          >
-            Bún chả
-          </button>
+        <div style={{ height: '52svh', minHeight: 400, borderRadius: 16, overflow: 'hidden', border: '1px solid var(--border)', isolation: 'isolate', zIndex: 1 }}>
+          <MapContainer center={position || { lat: 21.0286, lng: 105.8524 }} zoom={15} style={{ height: '100%', width: '100%', zIndex: 1 }}>
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            {position && (
+              <>
+                <Marker position={position} icon={myPosIcon}>
+                  <Popup>Bạn đang ở đây</Popup>
+                </Marker>
+                <MapController position={position} />
+              </>
+            )}
+            {POIS.map((poi) => (
+              <Marker key={poi.id} position={{ lat: poi.lat, lng: poi.lng }} icon={customIcon}>
+                <Popup>
+                  <div style={{ color: '#000' }}>
+                    <h3 style={{ margin: '0 0 6px 0', fontSize: 16, fontWeight: 700 }}>{poi.name}</h3>
+                    <div style={{ marginBottom: 10, fontSize: 13 }}>{poi.short.vi}</div>
+                    <button className="btn btnPrimary" style={{ width: '100%', padding: '6px' }} onClick={() => nav(`/tourist/poi/${poi.id}`)}>
+                      Xem chi tiết
+                    </button>
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
+          </MapContainer>
         </div>
 
         <div style={{ height: 12 }} />
