@@ -83,11 +83,11 @@ export function MapPage() {
     if (lastTriggerRef.current === nearby.p.id) return
     lastTriggerRef.current = nearby.p.id
 
-    const msg = language === 'vi' ? nearby.p.short.vi : language === 'ja' ? nearby.p.short.ja : nearby.p.short.en
+    const msg = language === 'vi' ? nearby.p.short.vi : language === 'ja' ? nearby.p.short.ja : language === 'zh' ? nearby.p.short.zh : language === 'ko' ? nearby.p.short.ko : nearby.p.short.en
     showToast({ title: `${t('tourist.map.nearByToast')}${nearby.p.name}`, message: msg })
 
     if (ttsOn) {
-      const speechLang = language === 'vi' ? 'vi-VN' : language === 'ja' ? 'ja-JP' : 'en-US'
+      const speechLang = language === 'vi' ? 'vi-VN' : language === 'ja' ? 'ja-JP' : language === 'zh' ? 'zh-CN' : language === 'ko' ? 'ko-KR' : 'en-US'
       speak(`${nearby.p.name}. ${msg}`, speechLang)
     }
   }, [language, poisWithDistance, position, radiusMeters, showToast, ttsOn])
@@ -214,7 +214,7 @@ export function MapPage() {
                     <div>
                       <div style={{ fontWeight: 800 }}>{p.name}</div>
                       <div style={{ color: 'var(--muted)', fontSize: 13 }}>
-                        {language === 'vi' ? p.short.vi : language === 'ja' ? p.short.ja : p.short.en}
+                        {language === 'vi' ? p.short.vi : language === 'ja' ? p.short.ja : language === 'zh' ? p.short.zh : language === 'ko' ? p.short.ko : p.short.en}
                       </div>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>

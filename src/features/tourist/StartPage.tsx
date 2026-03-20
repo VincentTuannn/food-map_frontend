@@ -8,6 +8,8 @@ const LANGS: Array<{ id: Language; label: string; sub: string }> = [
   { id: 'vi', label: 'Tiếng Việt', sub: 'Thuyết minh tiếng Việt' },
   { id: 'en', label: 'English', sub: 'English narration' },
   { id: 'ja', label: '日本語', sub: '日本語ナレーション' },
+  { id: 'zh', label: '中文', sub: '中文语音讲解' },
+  { id: 'ko', label: '한국어', sub: '한국어 오디오 가이드' },
 ]
 
 export function StartPage() {
@@ -88,20 +90,17 @@ export function StartPage() {
 
           <div>
             <div style={{ fontWeight: 700, marginBottom: 8 }}>{t('tourist.start.lang')}</div>
-            <div className="grid2">
+            <select
+              className="select"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as Language)}
+            >
               {LANGS.map((l) => (
-                <button
-                  key={l.id}
-                  className={`btn ${language === l.id ? 'btnPrimary' : ''}`}
-                  onClick={() => setLanguage(l.id)}
-                >
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
-                    <span>{l.label}</span>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>{l.sub}</span>
-                  </div>
-                </button>
+                <option key={l.id} value={l.id}>
+                  {l.label} - {l.sub}
+                </option>
               ))}
-            </div>
+            </select>
           </div>
         </div>
 

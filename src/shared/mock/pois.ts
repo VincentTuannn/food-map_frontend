@@ -4,10 +4,10 @@ import type { Poi } from '../domain/poi'
 export const POIS: Poi[] = [
   {
     id: 'pho-minh',
-    name: 'Phở Minh (Hồ Gươm)',
+    name: 'Phở Minh',
     category: 'food',
-    lat: 21.0286,
-    lng: 105.8524,
+    lat: 21.0315, // Fixed coordinates (Old Quarter) instead of the middle of Hoan Kiem Lake
+    lng: 105.8480,
     rating: 4.6,
     priceLevel: 2,
     tags: ['Phở', 'Local', 'Quick'],
@@ -15,6 +15,8 @@ export const POIS: Poi[] = [
       vi: 'Quán phở bò truyền thống, nước dùng trong, thơm quế hồi.',
       en: 'Classic beef pho with a clear, fragrant broth.',
       ja: '伝統的な牛肉フォー。澄んだスープが香り高い。',
+      zh: '经典越南牛肉粉，汤清味美。',
+      ko: '맑고 향긋한 국물이 일품인 전통 소고기 쌀국수.',
     },
     menuHighlights: ['Phở tái', 'Phở chín', 'Quẩy nóng'],
     voucher: {
@@ -40,6 +42,8 @@ export const POIS: Poi[] = [
       vi: 'Trứng cà phê béo mịn, view phố cổ từ ban công.',
       en: 'Creamy egg coffee with a balcony Old Quarter view.',
       ja: '濃厚なエッグコーヒー。旧市街を見下ろせる。',
+      zh: '浓郁的鸡蛋咖啡，可从阳台俯瞰老城风景。',
+      ko: '구시가지가 내려다보이는 발코니에서 즐기는 부드러운 에그 커피.',
     },
     menuHighlights: ['Cà phê trứng', 'Bạc xỉu', 'Cacao nóng'],
     reviews: [
@@ -60,6 +64,8 @@ export const POIS: Poi[] = [
       vi: 'Thịt nướng than hoa, nước chấm vừa miệng, rau đầy đặn.',
       en: 'Charcoal grilled pork with balanced dipping sauce.',
       ja: '炭火焼きの豚肉。つけだれが絶妙。',
+      zh: '炭烤猪肉配以美味蘸酱，蔬菜丰富。',
+      ko: '숯불 돼지고기 구이와 맛있는 소스의 조화.',
     },
     menuHighlights: ['Suất đặc biệt', 'Nem cua bể', 'Trà đá'],
     voucher: {
@@ -72,5 +78,49 @@ export const POIS: Poi[] = [
       { author: 'Sarah', stars: 5, text: 'Best bun cha I had in Hanoi.' },
     ],
   },
+  {
+    id: 'banh-mi-25',
+    name: 'Bánh Mì 25',
+    category: 'food',
+    lat: 21.0354,
+    lng: 105.8475,
+    rating: 4.8,
+    priceLevel: 1,
+    tags: ['Bánh mì', 'Street food', 'Quick'],
+    short: {
+      vi: 'Bánh mì nướng giòn rụm với nhân pate và thịt xá xíu đậm đà.',
+      en: 'Crispy baguette with savory pate and Char Siu pork filling.',
+      ja: '自家製パテとチャーシューがたっぷりのクリスピーなバインミー。',
+      zh: '酥脆法棍里塞满美味肉酱和叉烧。',
+      ko: '고소한 파테와 차슈가 듬뿍 들어간 바삭한 바인미.',
+    },
+    menuHighlights: ['Bánh mì thập cẩm', 'Bánh mì pate', 'Trà xanh'],
+    reviews: [
+      { author: 'Kevin', stars: 5, text: 'Absolutely the best Banh Mi in town.' },
+      { author: 'Trang', stars: 5, text: 'Pate rất ngon, nhân viên thân thiện.' },
+    ],
+  },
+  {
+    id: 'cha-ca-la-vong',
+    name: 'Chả Cá Lã Vọng',
+    category: 'food',
+    lat: 21.0336,
+    lng: 105.8497,
+    rating: 4.2,
+    priceLevel: 3,
+    tags: ['Seafood', 'Traditional', 'Specialty'],
+    short: {
+      vi: 'Món cá lăng nướng chảo danh tiếng dùng kèm thì là và bún.',
+      en: 'Famous sizzling dill-marinated fish served with rice noodles.',
+      ja: 'ディルとネギで炒める有名なハノイ名物鍋。',
+      zh: '著名的香草烤鱼，配以米粉和新鲜时蔬。',
+      ko: '딜과 함께 볶은 유명한 가물치 볶음 생선 요리.',
+    },
+    menuHighlights: ['Chả cá lăng', 'Bún rối', 'Mắm tôm'],
+    reviews: [
+      { author: 'John', stars: 4, text: 'A unique culinary experience, though a bit pricey.' },
+      { author: 'Hưng', stars: 4, text: 'Món ăn truyền thống giữ được hương vị lâu năm.' },
+    ],
+  }
 ]
 

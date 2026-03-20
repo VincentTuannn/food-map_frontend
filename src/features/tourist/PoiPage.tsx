@@ -29,7 +29,7 @@ export function PoiPage() {
     )
   }
 
-  const desc = language === 'vi' ? poi.short.vi : language === 'ja' ? poi.short.ja : poi.short.en
+  const desc = language === 'vi' ? poi.short.vi : language === 'ja' ? poi.short.ja : language === 'zh' ? poi.short.zh : language === 'ko' ? poi.short.ko : poi.short.en
 
   return (
     <AppShell>

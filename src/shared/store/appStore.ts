@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type Language = 'vi' | 'en' | 'ja'
+export type Language = 'vi' | 'en' | 'ja' | 'zh' | 'ko'
 export type ThemeMode = 'dark' | 'light'
 
 export type GeoPoint = {

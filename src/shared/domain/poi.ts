@@ -11,6 +11,8 @@ export type Poi = {
     vi: string
     en: string
     ja: string
+    zh: string
+    ko: string
   }
   menuHighlights: string[]
   voucher?: {
