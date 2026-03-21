@@ -85,7 +85,7 @@ export type I18nKey =
 type Dict = Record<I18nKey, string>
 
 const VI: Dict = {
-  'app.name': 'Tour Guide',
+  'app.name': 'Vĩnh Khánh Tour Guide',
   'nav.tourist': 'Du khách',
   'nav.merchant': 'Quán ăn',
   'nav.admin': 'Admin',
@@ -96,7 +96,7 @@ const VI: Dict = {
   'top.qrToMap': 'QR → Map',
   'top.premium': 'Premium',
   'tourist.start.title': 'Bắt đầu hành trình',
-  'tourist.start.subtitle': 'Demo PWA: nhập mã tour (hoặc quét QR ở bước tích hợp camera).',
+  'tourist.start.subtitle': '',
   'tourist.start.tourCode': 'Mã tour / QR code',
   'tourist.start.example': 'VD:',
   'tourist.start.saveTour': 'Lưu mã tour',
@@ -118,11 +118,11 @@ const VI: Dict = {
   'tourist.start.gpsDeniedTitle': 'Chưa cấp quyền vị trí',
   'tourist.start.gpsDeniedDesc': 'Vui lòng bật Location để dùng bản đồ.',
   'tourist.start.radiusSet': 'Đã set bán kính {radius}m',
-  'tourist.start.radiusDesc': '(Trong thực tế admin cấu hình; ở demo cho bạn chỉnh nhanh.)',
-  'tourist.start.gpsDesc': 'Hệ thống sẽ tự phát “audio/text” khi bạn vào vùng POI.',
-  'tourist.start.pwaPill': 'PWA · Mobile-first',
-  'tourist.map.title': 'Bản đồ & POI lân cận',
-  'tourist.map.subtitle': 'Ở demo này dùng “map mock” + geolocation thật (nếu bật GPS).',
+  'tourist.start.radiusDesc': '',
+  'tourist.start.gpsDesc': '',
+  'tourist.start.pwaPill': 'PWA',
+  'tourist.map.title': 'Bản đồ',
+  'tourist.map.subtitle': '',
   'tourist.map.nearbyList': 'Danh sách gần bạn',
   'tourist.map.triggerUnder': 'Trigger ≤ {radius}m',
   'tourist.map.noGps': 'Chưa có GPS',
@@ -150,7 +150,7 @@ const VI: Dict = {
   'tourist.poi.writeReview': 'Viết đánh giá',
   'tourist.poi.writeReviewDemo': 'Viết review (demo)',
   'tourist.premium.title': 'Premium',
-  'tourist.premium.subtitle': 'UI demo cho luồng thanh toán. Tích hợp cổng thanh toán sẽ làm ở backend + redirect.',
+  'tourist.premium.subtitle': '',
   'tourist.premium.paymentMock': 'Thanh toán (mock)',
   'tourist.premium.buyNow': 'Mua ngay',
   'tourist.premium.restore': 'Khôi phục',
@@ -168,7 +168,7 @@ const VI: Dict = {
 }
 
 const EN: Dict = {
-  'app.name': 'Tour Guide',
+  'app.name': 'Vĩnh Khánh Tour Guide',
   'nav.tourist': 'Tourist',
   'nav.merchant': 'Merchant',
   'nav.admin': 'Admin',
@@ -251,7 +251,7 @@ const EN: Dict = {
 }
 
 const JA: Dict = {
-  'app.name': 'Tour Guide',
+  'app.name': 'Vĩnh Khánh Tour Guide',
   'nav.tourist': '旅行者',
   'nav.merchant': '店舗',
   'nav.admin': '管理者',
@@ -334,7 +334,7 @@ const JA: Dict = {
 }
 
 const ZH: Dict = {
-  'app.name': '导游',
+  'app.name': 'Vĩnh Khánh Tour Guide',
   'nav.tourist': '游客',
   'nav.merchant': '商家',
   'nav.admin': '管理员',
@@ -417,7 +417,7 @@ const ZH: Dict = {
 }
 
 const KO: Dict = {
-  'app.name': '여행 가이드',
+  'app.name': 'Vĩnh Khánh Tour Guide',
   'nav.tourist': '여행객',
   'nav.merchant': '상인',
   'nav.admin': '관리자',
