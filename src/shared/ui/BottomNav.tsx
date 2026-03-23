@@ -9,14 +9,10 @@ export function BottomNav() {
   const t = useT()
   return (
     <nav className="bottomNav" aria-label="Bottom navigation">
-      <div className="bottomNavInner">
+      <div className="bottomNavInner" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
         <NavLink to="/tourist/map" className={({ isActive }) => tabClass(isActive)}>
           <span style={{ fontSize: 16 }}>🗺️</span>
           {t('nav.map')}
-        </NavLink>
-        <NavLink to="/tourist/poi/pho-minh" className={({ isActive }) => tabClass(isActive)}>
-          <span style={{ fontSize: 16 }}>📍</span>
-          {t('nav.poi')}
         </NavLink>
         <NavLink to="/tourist/premium" className={({ isActive }) => tabClass(isActive)}>
           <span style={{ fontSize: 16 }}>✨</span>
@@ -30,4 +26,3 @@ export function BottomNav() {
     </nav>
   )
 }
-

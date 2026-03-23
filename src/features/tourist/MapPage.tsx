@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { distanceMeters } from "../../shared/lib/geo";
 import { POIS } from "../../shared/mock/pois";
 import { useAppStore } from "../../shared/store/appStore";
@@ -10,49 +9,29 @@ import type {
   DirectionsRoute,
 } from "../../api/services/directions";
 import { mockDirections } from "../../api/mocks/directions.mock";
-//import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
-//import L from 'leaflet'
-//import 'leaflet/dist/leaflet.css'
-
-/*const customIcon = L.divIcon({
-  className: 'custom-leaflet-icon',
-  html: `<div style="background-color: #ef4444; width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
-  iconSize: [20, 20],
-  iconAnchor: [10, 10],
-})
-
-const myPosIcon = L.divIcon({
-  className: 'custom-leaflet-icon',
-  html: `<div style="background-color: #3b82f6; width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
-  iconSize: [20, 20],
-  iconAnchor: [10, 10],
-})
-
-function MapController({ position }: { position: { lat: number; lng: number } }) {
-  const map = useMap()
-  useEffect(() => {
-    map.flyTo(position, map.getZoom())
-  }, [position, map])
-  return null
-}*/
+import { PoiDetails } from "./PoiPage";
 
 import Map, { Marker, Popup } from "react-map-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
-// Nhớ thay Token của bạn vào đây
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
 
-function speak(text: string, lang: string) {
+function speak(text: string, lang: string, voiceURI?: string) {
   if (!("speechSynthesis" in window)) return;
   const u = new SpeechSynthesisUtterance(text);
   u.lang = lang;
+  if (voiceURI) {
+    const voices = window.speechSynthesis.getVoices();
+    const v = voices.find((x) => x.voiceURI === voiceURI);
+    if (v) u.voice = v;
+  }
   window.speechSynthesis.cancel();
   window.speechSynthesis.speak(u);
 }
 
 export function MapPage() {
-  const nav = useNavigate();
   const language = useAppStore((s) => s.language);
+  const theme = useAppStore((s) => s.theme);
   const radiusMeters = useAppStore((s) => s.radiusMeters);
   const position = useAppStore((s) => s.position);
   const setPosition = useAppStore((s) => s.setPosition);
@@ -64,6 +43,23 @@ export function MapPage() {
   const [route, setRoute] = useState<DirectionsRoute | undefined>(undefined);
   const lastTriggerRef = useRef<string | undefined>(undefined);
   const [selectedPoi, setSelectedPoi] = useState<any>(null);
+
+  const [showTtsSettings, setShowTtsSettings] = useState(false);
+  const [showDirections, setShowDirections] = useState(false);
+  const [viewingPoi, setViewingPoi] = useState<any>(null);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoiceURI, setSelectedVoiceURI] = useState<string>("");
+
+  useEffect(() => {
+    const loadVoices = () => {
+      const v = window.speechSynthesis.getVoices();
+      if (v.length > 0) setVoices(v);
+    };
+    loadVoices();
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+  }, []);
 
   useEffect(() => {
     if (!("geolocation" in navigator)) return;
@@ -91,6 +87,22 @@ export function MapPage() {
     );
   }, [position]);
 
+  const speechLang =
+    language === "vi"
+      ? "vi-VN"
+      : language === "ja"
+      ? "ja-JP"
+      : language === "zh"
+      ? "zh-CN"
+      : language === "ko"
+      ? "ko-KR"
+      : "en-US";
+
+  const availableVoices = voices.filter(
+    (v) => v.lang.startsWith(language) || v.lang.startsWith(speechLang.split("-")[0])
+  );
+  const displayVoices = availableVoices.length > 0 ? availableVoices : voices;
+
   useEffect(() => {
     if (!position) return;
     const nearby = poisWithDistance.find(
@@ -116,251 +128,245 @@ export function MapPage() {
     });
 
     if (ttsOn) {
-      const speechLang =
-        language === "vi"
-          ? "vi-VN"
-          : language === "ja"
-          ? "ja-JP"
-          : language === "zh"
-          ? "zh-CN"
-          : language === "ko"
-          ? "ko-KR"
-          : "en-US";
-      speak(`${nearby.p.name}. ${msg}`, speechLang);
+      speak(`${nearby.p.name}. ${msg}`, speechLang, selectedVoiceURI);
     }
-  }, [language, poisWithDistance, position, radiusMeters, showToast, ttsOn]);
+  }, [language, poisWithDistance, position, radiusMeters, showToast, ttsOn, speechLang, selectedVoiceURI]);
 
   return (
     <AppShell>
-      <div className="card cardPad">
-        <div className="rowBetween">
-          <div>
-            <div style={{ fontSize: 18, fontWeight: 800 }}>
-              {t("tourist.map.title")}
-            </div>
-            <div style={{ color: "var(--muted)", fontSize: 13 }}>
-              {t("tourist.map.subtitle")}
-            </div>
-          </div>
-          <div className="row">
-            <span className="pill">
-              {position
-                ? `${position.lat.toFixed(5)}, ${position.lng.toFixed(5)}`
-                : t("tourist.map.noGps")}
-            </span>
-            <button
-              className={`btn ${ttsOn ? "btnPrimary" : ""}`}
-              onClick={() => setTtsOn((v) => !v)}
-            >
-              TTS {ttsOn ? "ON" : "OFF"}
-            </button>
-          </div>
-        </div>
-
-        <div style={{ height: 12 }} />
-
-        <div
-          style={{
-            height: "52svh",
-            minHeight: 400,
-            borderRadius: 16,
-            overflow: "hidden",
-            border: "1px solid var(--border)",
-            isolation: "isolate",
-            zIndex: 1,
+      {/* 1. LAYER MAP (FIXED TO BACKGROUND) */}
+      <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", zIndex: 0 }}>
+        <Map
+          initialViewState={{
+            longitude: position ? position.lng : 105.8480,
+            latitude: position ? position.lat : 21.0315,
+            zoom: 16,
+          }}
+          mapStyle={theme === 'dark' ? "mapbox://styles/mapbox/navigation-night-v1" : "mapbox://styles/mapbox/streets-v12"}
+          mapboxAccessToken={MAPBOX_TOKEN}
+          style={{ height: "100%", width: "100%", zIndex: 1 }}
+          onClick={() => {
+            setSelectedPoi(null);
+            setViewingPoi(null);
           }}
         >
-          {/* --- KHUNG BẢN ĐỒ MAPBOX MỚI --- */}
-          <Map
-            initialViewState={{
-              longitude: position ? position.lng :  106.70199631742877, // Mặc định ở TP.HCM
-              latitude: position ? position.lat : 10.761943875167281, 
-              zoom: 18,
-            }}
-            mapStyle="mapbox://styles/ntnhan3110/cmmz0ajok004s01r0awao4egc"
-            mapboxAccessToken={MAPBOX_TOKEN}
-            style={{ height: "100%", width: "100%", zIndex: 1 }}
-          >
-            {/* Vị trí khách hàng */}
-            {position && (
-              <Marker
-                longitude={position.lng}
-                latitude={position.lat}
-                color="#3b82f6"
-              />
-            )}
+          {position && <Marker longitude={position.lng} latitude={position.lat} color="#3b82f6" />}
 
-            {/* Vị trí các quán ăn */}
-            {POIS.map((poi) => (
-              <Marker
-                key={poi.id}
-                longitude={poi.lng}
-                latitude={poi.lat}
-                color="#ef4444"
-                onClick={(e: any) => {
-                  e.originalEvent.stopPropagation(); // Ngăn việc click bị xuyên xuống bản đồ
-                  setSelectedPoi(poi);
-                }}
-              />
-            ))}
+          {POIS.map((poi) => (
+            <Marker
+              key={poi.id}
+              longitude={poi.lng}
+              latitude={poi.lat}
+              color="#ef4444"
+              onClick={(e: any) => {
+                e.originalEvent.stopPropagation();
+                setSelectedPoi(poi);
+              }}
+            />
+          ))}
 
-            {/* Popup hiện tên quán khi click vào Marker đỏ */}
-            {selectedPoi && (
-              <Popup
-                longitude={selectedPoi.lng}
-                latitude={selectedPoi.lat}
-                anchor="bottom"
-                onClose={() => setSelectedPoi(null)}
-                closeOnClick={false}
-              >
-                <div
-                  style={{ color: "#000", padding: "4px", textAlign: "center" }}
-                >
-                  <h3
+          {selectedPoi && (
+            <Popup
+              longitude={selectedPoi.lng}
+              latitude={selectedPoi.lat}
+              anchor="bottom"
+              onClose={() => setSelectedPoi(null)}
+              closeOnClick={true}
+              maxWidth="260px"
+              style={{ zIndex: 10 }}
+            >
+              <div style={{ color: "#000", padding: "4px", width: "100%" }}>
+                {selectedPoi.imageUrl && (
+                  <img
+                    src={selectedPoi.imageUrl}
+                    alt={selectedPoi.name}
                     style={{
-                      margin: "0 0 6px 0",
-                      fontSize: 16,
-                      fontWeight: 700,
+                      width: "100%",
+                      height: 120,
+                      objectFit: "cover",
+                      borderRadius: 8,
+                      marginBottom: 8,
                     }}
-                  >
-                    {selectedPoi.name}
-                  </h3>
+                  />
+                )}
+                <h3 style={{ margin: "0 0 6px 0", fontSize: 16, fontWeight: 700 }}>
+                  {selectedPoi.name}
+                </h3>
+                <div className="row" style={{ marginTop: 8 }}>
                   <button
                     className="btn btnPrimary"
-                    onClick={() => nav(`/tourist/poi/${selectedPoi.id}`)}
+                    style={{ flex: 1, padding: "8px", fontSize: 13 }}
+                    onClick={() => setViewingPoi(selectedPoi)}
                   >
                     Xem chi tiết
                   </button>
-                </div>
-              </Popup>
-            )}
-          </Map>
-        </div>
-
-        <div style={{ height: 12 }} />
-
-        <div
-          className="card cardPad"
-          style={{ background: "rgba(255,255,255,0.06)" }}
-        >
-          <div className="rowBetween">
-            <div style={{ fontWeight: 800 }}>
-              {t("tourist.map.directionsTitle")}
-            </div>
-            <div className="row">
-              <select
-                className="select"
-                value={profile}
-                onChange={(e) =>
-                  setProfile(e.target.value as DirectionsProfile)
-                }
-              >
-                <option value="walking">{t("tourist.map.walking")}</option>
-                <option value="driving">{t("tourist.map.driving")}</option>
-                <option value="cycling">{t("tourist.map.cycling")}</option>
-              </select>
-              <button
-                className="btn"
-                onClick={() => {
-                  if (!position) {
-                    showToast({ title: t("tourist.map.noGps") });
-                    return;
-                  }
-                  // For now we mock directions. Later swap to getDirections() from src/api/services/directions.ts
-                  const to = { lat: POIS[0].lat, lng: POIS[0].lng };
-                  setRoute(mockDirections({ from: position, to, profile }));
-                }}
-              >
-                {t("tourist.map.mockRoute")}
-              </button>
-            </div>
-          </div>
-          {route ? (
-            <>
-              <div style={{ height: 10 }} />
-              <div className="row" style={{ flexWrap: "wrap" }}>
-                <span className="pill">
-                  ~ {Math.round(route.distanceMeters)} m
-                </span>
-                <span className="pill">
-                  ~ {Math.round(route.durationSeconds / 60)} min
-                </span>
-              </div>
-              <div style={{ height: 10 }} />
-              <div style={{ display: "grid", gap: 8 }}>
-                {route.steps.map((s, i) => (
-                  <div
-                    key={i}
-                    className="pill"
-                    style={{ justifyContent: "space-between" }}
-                  >
-                    <span>{s.instruction}</span>
-                    <span>{Math.round(s.distanceMeters)}m</span>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : null}
-        </div>
-
-        <div style={{ height: 12 }} />
-
-        <div className="card" style={{ borderRadius: 16, overflow: "hidden" }}>
-          <div className="cardPad">
-            <div className="rowBetween">
-              <div style={{ fontWeight: 800 }}>
-                {t("tourist.map.nearbyList")}
-              </div>
-              <span className="pill">
-                {t("tourist.map.triggerUnder", { radius: radiusMeters })}
-              </span>
-            </div>
-
-            <div style={{ height: 10 }} />
-
-            <div style={{ display: "grid", gap: 10 }}>
-              {poisWithDistance.map(({ p, d }) => (
-                <button
-                  key={p.id}
-                  className="btn"
-                  style={{ textAlign: "left" }}
-                  onClick={() => nav(`/tourist/poi/${p.id}`)}
-                >
-                  <div className="rowBetween">
-                    <div>
-                      <div style={{ fontWeight: 800 }}>{p.name}</div>
-                      <div style={{ color: "var(--muted)", fontSize: 13 }}>
-                        {language === "vi"
-                          ? p.short.vi
+                  <button
+                    className="btn"
+                    style={{ padding: "8px", fontSize: 13 }}
+                    onClick={() => {
+                      const msg =
+                        language === "vi"
+                          ? selectedPoi.short.vi
                           : language === "ja"
-                          ? p.short.ja
+                          ? selectedPoi.short.ja
                           : language === "zh"
-                          ? p.short.zh
+                          ? selectedPoi.short.zh
                           : language === "ko"
-                          ? p.short.ko
-                          : p.short.en}
-                      </div>
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "flex-end",
-                        gap: 4,
+                          ? selectedPoi.short.ko
+                          : selectedPoi.short.en;
+                      speak(`${selectedPoi.name}. ${msg}`, speechLang, selectedVoiceURI);
+                    }}
+                  >
+                    🔊 Nghe
+                  </button>
+                </div>
+              </div>
+            </Popup>
+          )}
+        </Map>
+      </div>
+
+      {/* 2. LAYER OVERLAY (FLOATING PANELS) */}
+      <div
+        style={{
+          position: "fixed",
+          top: 80, // Allow space for AppShell's TopBar
+          left: 14,
+          right: 14,
+          bottom: 80, // Allow space for AppShell's BottomNav
+          pointerEvents: "none",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          zIndex: 10,
+        }}
+      >
+        {/* TOP COMPACT CONTROLS */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          
+          {/* LEFT: Directions Panel */}
+          <div style={{ flex: 1, maxWidth: 320, pointerEvents: "auto" }}>
+            {showDirections && (
+              <div className="card cardPad" style={{ background: "var(--panel)", backdropFilter: "blur(16px)", boxShadow: "0 8px 32px rgba(0,0,0,0.2)" }}>
+                 <div className="rowBetween" style={{ marginBottom: 12 }}>
+                   <div style={{ fontWeight: 800 }}>{t("tourist.map.directionsTitle")}</div>
+                   <button className="btn btnGhost" style={{ padding: "4px 8px" }} onClick={() => setShowDirections(false)}>✕</button>
+                 </div>
+                 <div className="row">
+                    <select className="select" value={profile} onChange={(e) => setProfile(e.target.value as DirectionsProfile)}>
+                      <option value="walking">{t("tourist.map.walking")}</option>
+                      <option value="driving">{t("tourist.map.driving")}</option>
+                      <option value="cycling">{t("tourist.map.cycling")}</option>
+                    </select>
+                    <button
+                      className="btn btnPrimary"
+                      onClick={() => {
+                        if (!position) {
+                          showToast({ title: t("tourist.map.noGps") });
+                          return;
+                        }
+                        const to = { lat: POIS[0].lat, lng: POIS[0].lng };
+                        setRoute(mockDirections({ from: position, to, profile }));
                       }}
                     >
-                      <span className="pill">⭐ {p.rating.toFixed(1)}</span>
-                      <span className="pill">
-                        {d === undefined ? "— m" : `${Math.round(d)} m`}
-                      </span>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
+                      Tìm
+                    </button>
+                 </div>
+                 {route && (
+                   <div style={{ marginTop: 12 }}>
+                     <div className="row" style={{ flexWrap: "wrap", marginBottom: 8 }}>
+                       <span className="pill">~ {Math.round(route.distanceMeters)} m</span>
+                       <span className="pill">~ {Math.round(route.durationSeconds / 60)} min</span>
+                     </div>
+                     <div style={{ display: "grid", gap: 8, maxHeight: "25vh", overflowY: "auto", paddingRight: 4 }}>
+                       {route.steps.map((s, i) => (
+                         <div key={i} className="pill" style={{ justifyContent: "space-between", borderRadius: 8 }}>
+                           <span>{s.instruction}</span>
+                           <span style={{color: 'var(--brand)', fontWeight: 600}}>{Math.round(s.distanceMeters)}m</span>
+                         </div>
+                       ))}
+                     </div>
+                   </div>
+                 )}
+              </div>
+            )}
+          </div>
+
+          {/* RIGHT: Floating Action Buttons */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, pointerEvents: "auto", alignItems: "flex-end", marginLeft: 16 }}>
+            <button
+              onClick={() => setShowDirections(s => !s)}
+              className="card"
+              style={{ width: 44, height: 44, borderRadius: 22, display: "flex", alignItems: "center", justifyContent: "center", border: showDirections ? "2px solid var(--brand)" : "1px solid var(--border)", background: showDirections ? "var(--panel-2)" : "var(--panel)", color: "var(--text)", boxShadow: "0 4px 12px rgba(0,0,0,0.15)", cursor: "pointer", fontSize: 18 }}
+            >
+              🗺️
+            </button>
+            <button
+              onClick={() => setTtsOn((v) => !v)}
+              className="card"
+              style={{ width: 44, height: 44, borderRadius: 22, display: "flex", alignItems: "center", justifyContent: "center", border: ttsOn ? "2px solid var(--brand)" : "1px solid var(--border)", background: ttsOn ? "var(--brand)" : "var(--panel)", color: ttsOn ? "#fff" : "var(--text)", boxShadow: "0 4px 12px rgba(0,0,0,0.15)", cursor: "pointer", fontSize: 18 }}
+            >
+              {ttsOn ? "🔊" : "🔈"}
+            </button>
+            <button
+              onClick={() => setShowTtsSettings((s) => !s)}
+              className="card"
+              style={{ width: 44, height: 44, borderRadius: 22, display: "flex", alignItems: "center", justifyContent: "center", border: showTtsSettings ? "2px solid var(--brand)" : "1px solid var(--border)", background: showTtsSettings ? "var(--panel-2)" : "var(--panel)", color: "var(--text)", boxShadow: "0 4px 12px rgba(0,0,0,0.15)", cursor: "pointer", fontSize: 18 }}
+            >
+              ⚙️
+            </button>
+
+            {/* TTS Settings Dropdown */}
+            {showTtsSettings && (
+              <div className="card cardPad" style={{ width: 220, background: "var(--panel)", backdropFilter: "blur(16px)", marginTop: 4, textAlign: "left", boxShadow: "0 8px 32px rgba(0,0,0,0.2)" }}>
+                <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13 }}>Giọng đọc TTS</div>
+                 <select
+                    className="select"
+                    value={selectedVoiceURI}
+                    onChange={(e) => setSelectedVoiceURI(e.target.value)}
+                    style={{ fontSize: 13, padding: "8px" }}
+                  >
+                    <option value="">Giọng mặc định</option>
+                    {displayVoices.map((v) => (
+                      <option key={v.voiceURI} value={v.voiceURI}>{v.name}</option>
+                    ))}
+                  </select>
+              </div>
+            )}
           </div>
         </div>
+
       </div>
+
+      {viewingPoi && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+          <div 
+            style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+            onClick={() => setViewingPoi(null)}
+          />
+          <div 
+            style={{ 
+              position: "relative",
+              background: "var(--bg)", 
+              borderTopLeftRadius: 24, 
+              borderTopRightRadius: 24, 
+              padding: "20px 20px calc(env(safe-area-inset-bottom) + 20px) 20px",
+              maxHeight: "85vh",
+              overflowY: "auto",
+              boxShadow: "0 -8px 40px rgba(0,0,0,0.3)",
+              animation: "slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)"
+            }}
+          >
+            <style>{`
+              @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+            `}</style>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+              <div style={{ width: 40, height: 4, background: "var(--border)", borderRadius: 2 }} />
+            </div>
+            <PoiDetails poi={viewingPoi} />
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

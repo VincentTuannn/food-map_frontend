@@ -2,6 +2,7 @@ export type Poi = {
   id: string
   name: string
   category: 'food' | 'drink' | 'sight'
+  imageUrl?: string
   lat: number
   lng: number
   rating: number
