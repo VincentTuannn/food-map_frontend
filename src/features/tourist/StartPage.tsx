@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAppStore, type Language } from '../../shared/store/appStore'
 import { AppShell } from '../../shared/ui/AppShell'
 import { useT } from '../../shared/i18n/useT'
+import QRCode from 'react-qr-code'
 
 const LANGS: Array<{ id: Language; label: string; sub: string }> = [
   { id: 'vi', label: 'Tiếng Việt', sub: 'Thuyết minh tiếng Việt' },
@@ -20,8 +21,10 @@ export function StartPage() {
   const showToast = useAppStore((s) => s.showToast)
   const t = useT()
 
+  // TODO: Backend chưa có API quản lý/tra cứu Tour (với mã code Tour).
   const [code, setCode] = useState('HN-OLDQUARTER')
   const [radius, setRadius] = useState(80)
+  const [showQr, setShowQr] = useState(false)
   const setRadiusMeters = useAppStore((s) => s.setRadiusMeters)
 
   const canGeo = useMemo(() => 'geolocation' in navigator, [])
@@ -81,11 +84,16 @@ export function StartPage() {
               </button>
               <button
                 className="btn"
-                onClick={() => showToast({ title: t('tourist.start.qrDemoTitle'), message: t('tourist.start.qrDemoDesc') })}
+                onClick={() => setShowQr(s => !s)}
               >
-                {t('tourist.start.scanQr')}
+                {showQr ? "Ẩn mã QR" : "Tạo mã QR"}
               </button>
             </div>
+            {showQr && code.trim() && (
+              <div style={{ marginTop: 16, background: '#fff', padding: 16, borderRadius: 12, display: 'inline-block' }}>
+                <QRCode value={code.trim()} size={150} />
+              </div>
+            )}
           </div>
 
           <div>

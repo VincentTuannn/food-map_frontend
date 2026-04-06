@@ -307,3 +307,29 @@ a {
   background: var(--border);
   margin: 12px 0;
 }
+
+/* Custom Mapbox Popup Styling */
+.mapboxgl-popup {
+  padding-bottom: 12px !important;
+}
+
+.mapboxgl-popup-content {
+  background: var(--panel) !important;
+  backdrop-filter: blur(16px);
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 16px !important;
+  padding: 14px !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4) !important;
+}
+
+.mapboxgl-popup-tip {
+  display: none !important;
+}
+
+.mapboxgl-popup-close-button {
+  color: var(--text) !important;
+  font-size: 18px;
+  top: 6px;
+  right: 6px;
+}

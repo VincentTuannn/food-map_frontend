@@ -21,15 +21,25 @@ export type NearbyPoiResponse = {
   }>
 }
 
-export async function getNearbyPois(req: NearbyPoiRequest) {
+export async function getNearbyPois(req: NearbyPoiRequest): Promise<NearbyPoiResponse> {
   const params = new URLSearchParams()
   params.set('lat', String(req.lat))
   params.set('lng', String(req.lng))
-  params.set('radiusMeters', String(req.radiusMeters))
+  params.set('radius', String(req.radiusMeters))
   if (req.limit) params.set('limit', String(req.limit))
-  if (req.category) params.set('category', req.category)
-  if (req.query) params.set('query', req.query)
 
-  return apiFetch<NearbyPoiResponse>(`/api/location/pois/nearby?${params.toString()}`)
+  const res = await apiFetch<any>(`/users/pois/nearby?${params.toString()}`)
+
+  return {
+    items: (res?.data || []).map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      lat: p.location?.coordinates?.[1] ?? 0,
+      lng: p.location?.coordinates?.[0] ?? 0,
+      rating: p.average_rating ? Number(p.average_rating) : undefined,
+      category: 'food',
+      distanceMeters: p.distance ? Number(p.distance) : undefined,
+    }))
+  }
 }
 

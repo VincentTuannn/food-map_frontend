@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { distanceMeters } from "../../shared/lib/geo";
-import { POIS } from "../../shared/mock/pois";
+import { POIS as MockPOIS } from "../../shared/mock/pois";
+import { getNearbyPois } from "../../api/services/location";
 import { useAppStore } from "../../shared/store/appStore";
 import { AppShell } from "../../shared/ui/AppShell";
 import { useT } from "../../shared/i18n/useT";
@@ -10,6 +11,7 @@ import type {
 } from "../../api/services/directions";
 import { mockDirections } from "../../api/mocks/directions.mock";
 import { PoiDetails } from "./PoiPage";
+import { getPoiContent, type ContentLanguage } from "../../api/services/content";
 
 import Map, { Marker, Popup } from "react-map-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
@@ -50,6 +52,38 @@ export function MapPage() {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoiceURI, setSelectedVoiceURI] = useState<string>("");
 
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const playTTS = async (poi: any, text: string, langArg: string, voiceURI?: string) => {
+    try {
+      // Map global language to ContentLanguage ('vi' | 'en' | 'ja')
+      const contentLang = (language === 'vi' || language === 'ja') ? language as ContentLanguage : 'en';
+      const res = await getPoiContent(poi.id, contentLang);
+      
+      // Attempt to extract the URL depending on how the backend ultimately builds the response payload
+      const audioUrl = (res as any)?.data?.audio_url || (res as any)?.audio_url || res?.audioUrl;
+      
+      if (audioUrl) {
+        if (currentAudioRef.current) {
+          currentAudioRef.current.pause();
+        }
+        window.speechSynthesis.cancel(); // Also stop any ongoing web speech
+        const audio = new Audio(audioUrl);
+        currentAudioRef.current = audio;
+        await audio.play();
+        return; // Success, skip fallback
+      }
+    } catch (err) {
+      console.warn("Failed to fetch API TTS, running fallback Web Speech API", err);
+    }
+    
+    // Fallback to Web Speech API when backend has no TTS URL
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+    }
+    speak(`${poi.name}. ${text}`, langArg, voiceURI);
+  };
+
   useEffect(() => {
     const loadVoices = () => {
       const v = window.speechSynthesis.getVoices();
@@ -75,17 +109,41 @@ export function MapPage() {
     return () => navigator.geolocation.clearWatch(w);
   }, [setPosition]);
 
-  const poisWithDistance = useMemo(() => {
-    if (!position)
-      return POIS.map((p) => ({ p, d: undefined as number | undefined }));
-    return POIS.map((p) => ({
-      p,
-      d: distanceMeters(position, { lat: p.lat, lng: p.lng }),
-    })).sort(
-      (a, b) =>
-        (a.d ?? Number.POSITIVE_INFINITY) - (b.d ?? Number.POSITIVE_INFINITY)
-    );
+  const [apiPois, setApiPois] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!position) return;
+    // Fetch real POIs from backend, limiting radius to 5km for demo
+    getNearbyPois({ lat: position.lat, lng: position.lng, radiusMeters: 5000, limit: 100 })
+      .then((res) => setApiPois(res.items))
+      .catch((e) => console.error(e));
   }, [position]);
+
+  const poisWithDistance = useMemo(() => {
+    if (!position) return [];
+    
+    // Khôi phục lại toàn bộ mock data cho người dùng dễ nhìn thấy điểm trên map
+    const allPois = [...MockPOIS];
+    
+    // Kết hợp (merge) dữ liệu từ backend nếu có
+    for (const p of apiPois) {
+       const existingIndex = allPois.findIndex(m => m.id === p.id);
+       if (existingIndex >= 0) {
+           // Có trong mock -> đè tọa độ/tên từ backend lên
+           allPois[existingIndex] = { ...allPois[existingIndex], ...p };
+       } else {
+           // Không có trong mock (chắc backend user tự tạo mới) -> mượn tạm ảnh/fields của Mock 0 để UI khỏi vỡ
+           allPois.push({ ...MockPOIS[0], ...p, id: p.id }); 
+       }
+    }
+
+    return allPois.map((p) => {
+      return {
+        p: p,
+        d: distanceMeters(position, { lat: p.lat, lng: p.lng }),
+      };
+    }).sort((a, b) => (a.d ?? Number.POSITIVE_INFINITY) - (b.d ?? Number.POSITIVE_INFINITY));
+  }, [position, apiPois]);
 
   const speechLang =
     language === "vi"
@@ -128,7 +186,7 @@ export function MapPage() {
     });
 
     if (ttsOn) {
-      speak(`${nearby.p.name}. ${msg}`, speechLang, selectedVoiceURI);
+      playTTS(nearby.p, msg, speechLang, selectedVoiceURI);
     }
   }, [language, poisWithDistance, position, radiusMeters, showToast, ttsOn, speechLang, selectedVoiceURI]);
 
@@ -152,7 +210,7 @@ export function MapPage() {
         >
           {position && <Marker longitude={position.lng} latitude={position.lat} color="#3b82f6" />}
 
-          {POIS.map((poi) => (
+          {poisWithDistance.map(({ p: poi }) => (
             <Marker
               key={poi.id}
               longitude={poi.lng}
@@ -172,10 +230,11 @@ export function MapPage() {
               anchor="bottom"
               onClose={() => setSelectedPoi(null)}
               closeOnClick={true}
+              closeButton={false}
               maxWidth="260px"
               style={{ zIndex: 10 }}
             >
-              <div style={{ color: "#000", padding: "4px", width: "100%" }}>
+              <div style={{ padding: "4px", width: "100%" }}>
                 {selectedPoi.imageUrl && (
                   <img
                     src={selectedPoi.imageUrl}
@@ -214,7 +273,7 @@ export function MapPage() {
                           : language === "ko"
                           ? selectedPoi.short.ko
                           : selectedPoi.short.en;
-                      speak(`${selectedPoi.name}. ${msg}`, speechLang, selectedVoiceURI);
+                      playTTS(selectedPoi, msg, speechLang, selectedVoiceURI);
                     }}
                   >
                     🔊 Nghe
@@ -265,7 +324,12 @@ export function MapPage() {
                           showToast({ title: t("tourist.map.noGps") });
                           return;
                         }
-                        const to = { lat: POIS[0].lat, lng: POIS[0].lng };
+                        const toList = poisWithDistance.map(x => x.p);
+                        if (toList.length === 0) {
+                          showToast({ title: "Không có POI nào gần đây" });
+                          return;
+                        }
+                        const to = { lat: toList[0].lat, lng: toList[0].lng };
                         setRoute(mockDirections({ from: position, to, profile }));
                       }}
                     >

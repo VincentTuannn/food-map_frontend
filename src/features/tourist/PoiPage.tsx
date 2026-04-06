@@ -155,6 +155,8 @@ export function PoiPage() {
   const { poiId } = useParams()
   const t = useT()
 
+  // TODO: Backend chưa có API public lấy chi tiết 1 POI theo ID (chi tiết hình ảnh, review, v.v.).
+  // Tạm thời giữ việc tra cứu mock data từ mảng POIS.
   const poi = useMemo(() => POIS.find((p) => p.id === poiId), [poiId])
 
   if (!poi) {
