@@ -11,7 +11,7 @@ import type {
 } from "../../api/services/directions";
 import { mockDirections } from "../../api/mocks/directions.mock";
 import { PoiDetails } from "./PoiPage";
-import { getPoiContent } from "../../api/services/content";
+import { getCachedPoiContent, getPoiContent } from "../../api/services/content";
 
 import Map, { Marker, Popup } from "react-map-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
@@ -50,34 +50,71 @@ export function MapPage() {
   const [showDirections, setShowDirections] = useState(false);
   const [viewingPoi, setViewingPoi] = useState<any>(null);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [selectedVoiceURI, setSelectedVoiceURI] = useState<string>("");
+  const [selectedSpeechLocale, setSelectedSpeechLocale] = useState<string>("en-US");
+  const [selectedMurfVoice, setSelectedMurfVoice] = useState<string>("");
+  const [selectedMurfGender, setSelectedMurfGender] = useState<"female" | "male">("female");
+  const [ttsRate, setTtsRate] = useState(1);
+  const [isTtsLoading, setIsTtsLoading] = useState(false);
 
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const seenTtsKeysRef = useRef<Set<string>>(new Set());
 
   const playTTS = async (poi: any, text: string, langArg: string, voiceURI?: string) => {
     try {
-      const res = await getPoiContent(poi.id, language);
-      
+      setIsTtsLoading(true);
+      const ttsOptions = {
+        voice: selectedMurfVoice || undefined,
+        gender: selectedMurfGender,
+        speed: ttsRate,
+      };
+      const ttsKey = [
+        poi.id,
+        selectedSpeechLocale,
+        ttsOptions.voice ?? "default",
+        ttsOptions.gender,
+        ttsOptions.speed,
+      ].join("|");
+      const preferCache = seenTtsKeysRef.current.has(ttsKey);
+
+      const res = await getPoiContent(poi.id, selectedSpeechLocale, {
+        ...ttsOptions,
+        preferCache,
+      });
+      seenTtsKeysRef.current.add(ttsKey);
+
       // Attempt to extract the URL depending on how the backend ultimately builds the response payload
       const audioUrl = (res as any)?.data?.audio_url || (res as any)?.audio_url || res?.audioUrl || res?.data?.audioUrl;
-      
+
       if (audioUrl) {
         if (currentAudioRef.current) {
           currentAudioRef.current.pause();
         }
         window.speechSynthesis.cancel(); // Also stop any ongoing web speech
         const audio = new Audio(audioUrl);
+        audio.playbackRate = ttsRate;
         currentAudioRef.current = audio;
         await audio.play();
         return; // Success, skip fallback
       }
     } catch (err) {
       console.warn("Failed to fetch API TTS, running fallback Web Speech API", err);
+    } finally {
+      setIsTtsLoading(false);
     }
     
     // Fallback to Web Speech API when backend has no TTS URL
     if (currentAudioRef.current) {
       currentAudioRef.current.pause();
+    }
+    if ("speechSynthesis" in window) {
+      const utterance = new SpeechSynthesisUtterance(`${poi.name}. ${text}`);
+      utterance.lang = selectedSpeechLocale || langArg;
+      utterance.rate = ttsRate;
+      const fallbackVoice = voices.find((x) => x.lang === (selectedSpeechLocale || langArg));
+      if (fallbackVoice) utterance.voice = fallbackVoice;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utterance);
+      return;
     }
     speak(`${poi.name}. ${text}`, langArg, voiceURI);
   };
@@ -111,8 +148,9 @@ export function MapPage() {
 
   useEffect(() => {
     if (!position) return;
-    // Fetch real POIs from backend, limiting radius to 5km for demo
-    getNearbyPois({ lat: position.lat, lng: position.lng, radiusMeters: 5000, limit: 100 })
+    //Tạm thời test 50km
+    // Fetch real POIs from backend, limiting radius to 50km for demo
+    getNearbyPois({ lat: position.lat, lng: position.lng, radiusMeters: 50000, limit: 100 })
       .then((res) => setApiPois(res.items))
       .catch((e) => console.error(e));
   }, [position]);
@@ -154,10 +192,30 @@ export function MapPage() {
       ? "ko-KR"
       : "en-US";
 
-  const availableVoices = voices.filter(
-    (v) => v.lang.startsWith(language) || v.lang.startsWith(speechLang.split("-")[0])
-  );
-  const displayVoices = availableVoices.length > 0 ? availableVoices : voices;
+  const murfLocale = selectedSpeechLocale || speechLang;
+  const murfVoicesByLocale: Record<string, { female: string; male: string }> = {
+    "vi-VN": { female: "Jacek", male: "Peter" },
+    "en-US": { female: "Natalie", male: "Ken" },
+    "ja-JP": { female: "Hina", male: "Denki" },
+    "ko-KR": { female: "Gyeong", male: "Hwan" },
+    "zh-CN": { female: "Jiao", male: "Tao" },
+    "fr-FR": { female: "Adélie", male: "Guillaume" },
+    "de-DE": { female: "Ruby", male: "Matthias" },
+    "es-ES": { female: "Elvira", male: "Javier" },
+  };
+  const murfVoices = murfVoicesByLocale[murfLocale] ?? murfVoicesByLocale["en-US"];
+
+  useEffect(() => {
+    if (!selectedMurfVoice) {
+      setSelectedMurfVoice(murfVoices[selectedMurfGender]);
+    }
+  }, [murfLocale, murfVoices, selectedMurfGender, selectedMurfVoice]);
+
+  useEffect(() => {
+    setSelectedSpeechLocale(speechLang);
+  }, [speechLang]);
+
+  const speechLocaleOptions = ["vi-VN", "en-US", "ja-JP", "ko-KR", "zh-CN"];
 
   useEffect(() => {
     if (!position) return;
@@ -184,9 +242,9 @@ export function MapPage() {
     });
 
     if (ttsOn) {
-      playTTS(nearby.p, msg, speechLang, selectedVoiceURI);
+      playTTS(nearby.p, msg, speechLang, selectedSpeechLocale);
     }
-  }, [language, poisWithDistance, position, radiusMeters, showToast, ttsOn, speechLang, selectedVoiceURI]);
+  }, [language, poisWithDistance, position, radiusMeters, showToast, ttsOn, speechLang, selectedSpeechLocale]);
 
   return (
     <AppShell>
@@ -260,6 +318,7 @@ export function MapPage() {
                   <button
                     className="btn"
                     style={{ padding: "8px", fontSize: 13 }}
+                    disabled={isTtsLoading}
                     onClick={() => {
                       const msg =
                         language === "vi"
@@ -271,10 +330,11 @@ export function MapPage() {
                           : language === "ko"
                           ? selectedPoi.short.ko
                           : selectedPoi.short.en;
-                      playTTS(selectedPoi, msg, speechLang, selectedVoiceURI);
+                      playTTS(selectedPoi, msg, speechLang, selectedSpeechLocale);
                     }}
                   >
-                    🔊 Nghe
+                    {isTtsLoading ? <span className="spinner" aria-hidden="true" /> : "🔊"}
+                    <span>{isTtsLoading ? "Đang tạo" : "Nghe"}</span>
                   </button>
                 </div>
               </div>
@@ -368,7 +428,7 @@ export function MapPage() {
               className="card"
               style={{ width: 44, height: 44, borderRadius: 22, display: "flex", alignItems: "center", justifyContent: "center", border: ttsOn ? "2px solid var(--brand)" : "1px solid var(--border)", background: ttsOn ? "var(--brand)" : "var(--panel)", color: ttsOn ? "#fff" : "var(--text)", boxShadow: "0 4px 12px rgba(0,0,0,0.15)", cursor: "pointer", fontSize: 18 }}
             >
-              {ttsOn ? "🔊" : "🔈"}
+              {isTtsLoading ? "⏳" : ttsOn ? "🔊" : "🔈"}
             </button>
             <button
               onClick={() => setShowTtsSettings((s) => !s)}
@@ -382,16 +442,55 @@ export function MapPage() {
             {showTtsSettings && (
               <div className="card cardPad" style={{ width: 220, background: "var(--panel)", backdropFilter: "blur(16px)", marginTop: 4, textAlign: "left", boxShadow: "0 8px 32px rgba(0,0,0,0.2)" }}>
                 <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13 }}>Giọng đọc TTS</div>
-                 <select
+                  <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 12 }}>Murf Voice</div>
+                  <div className="row" style={{ gap: 8, alignItems: "center" }}>
+                    <select
+                      className="select"
+                      value={selectedMurfGender}
+                      onChange={(e) => {
+                        const nextGender = e.target.value as "female" | "male";
+                        setSelectedMurfGender(nextGender);
+                        setSelectedMurfVoice(murfVoices[nextGender]);
+                      }}
+                      style={{ fontSize: 13, padding: "8px", width: 110 }}
+                    >
+                      <option value="female">Female</option>
+                      <option value="male">Male</option>
+                    </select>
+                    <select
+                      className="select"
+                      value={selectedMurfVoice}
+                      onChange={(e) => setSelectedMurfVoice(e.target.value)}
+                      style={{ fontSize: 13, padding: "8px", flex: 1 }}
+                    >
+                      <option value={murfVoices.female}>{murfVoices.female}</option>
+                      <option value={murfVoices.male}>{murfVoices.male}</option>
+                    </select>
+                  </div>
+                  <div style={{ height: 8 }} />
+                  <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 12 }}>Web Speech (fallback)</div>
+                  <select
                     className="select"
-                    value={selectedVoiceURI}
-                    onChange={(e) => setSelectedVoiceURI(e.target.value)}
+                    value={selectedSpeechLocale}
+                    onChange={(e) => setSelectedSpeechLocale(e.target.value)}
                     style={{ fontSize: 13, padding: "8px" }}
                   >
-                    <option value="">Giọng mặc định</option>
-                    {displayVoices.map((v) => (
-                      <option key={v.voiceURI} value={v.voiceURI}>{v.name}</option>
+                    {speechLocaleOptions.map((locale) => (
+                      <option key={locale} value={locale}>{locale}</option>
                     ))}
+                  </select>
+                  <div style={{ height: 8 }} />
+                  <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>Tốc độ đọc</div>
+                  <select
+                    className="select"
+                    value={ttsRate}
+                    onChange={(e) => setTtsRate(Number(e.target.value))}
+                    style={{ fontSize: 13, padding: "8px" }}
+                  >
+                    <option value={0.8}>0.8x</option>
+                    <option value={1}>1.0x</option>
+                    <option value={1.2}>1.2x</option>
+                    <option value={1.5}>1.5x</option>
                   </select>
               </div>
             )}

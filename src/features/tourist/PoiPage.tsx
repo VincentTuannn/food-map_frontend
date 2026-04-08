@@ -5,7 +5,9 @@ import { useAppStore } from '../../shared/store/appStore'
 import { AppShell } from '../../shared/ui/AppShell'
 import { useT } from '../../shared/i18n/useT'
 import type { Poi } from '../../shared/domain/poi'
-import { getPoiContent } from '../../api/services/content'
+import { cachePoiContent, getCachedPoiContent, getPoiContent } from '../../api/services/content'
+import type { ApiPoi } from '../../api/services/poi'
+import { getPoiById } from '../../api/services/poi'
 
 export function PoiDetails({ poi }: { poi: Poi }) {
   const language = useAppStore((s) => s.language)
@@ -17,27 +19,75 @@ export function PoiDetails({ poi }: { poi: Poi }) {
 
   const [poiContent, setPoiContent] = useState<any>(null)
   const [isLoadingContent, setIsLoadingContent] = useState(false)
+  const [playbackRate, setPlaybackRate] = useState(1)
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
+  const [selectedVoiceURI, setSelectedVoiceURI] = useState('')
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
   useEffect(() => {
+    const cached = getCachedPoiContent(poi.id, language)
+    if (cached) {
+      setPoiContent(cached)
+    }
     setIsLoadingContent(true)
-    getPoiContent(poi.id, language)
+    getPoiContent(poi.id, language, { preferCache: true })
       .then(res => setPoiContent(res?.data || res))
       .catch(err => console.error("Failed to fetch POI content:", err))
       .finally(() => setIsLoadingContent(false))
   }, [poi.id, language])
 
+  useEffect(() => {
+    const loadVoices = () => {
+      const available = window.speechSynthesis.getVoices()
+      if (available.length > 0) {
+        setVoices(available)
+        if (!selectedVoiceURI) {
+          setSelectedVoiceURI(available[0].voiceURI)
+        }
+      }
+    }
+    loadVoices()
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = loadVoices
+    }
+  }, [selectedVoiceURI])
+
   const desc = poiContent?.description || poiContent?.text || (language === 'vi' ? poi.short.vi : language === 'ja' ? poi.short.ja : language === 'zh' ? poi.short.zh : language === 'ko' ? poi.short.ko : poi.short.en)
   const audioUrl = poiContent?.audio_url || poiContent?.audioUrl
 
   const playAudio = () => {
-    if (!audioUrl) return
     if (audioRef.current) {
       audioRef.current.pause()
     }
-    const audio = new Audio(audioUrl)
-    audioRef.current = audio
-    audio.play()
+
+    if (audioUrl) {
+      const audio = new Audio(audioUrl)
+      audio.playbackRate = playbackRate
+      audioRef.current = audio
+      audio.play()
+      return
+    }
+
+    if ('speechSynthesis' in window && desc) {
+      const utterance = new SpeechSynthesisUtterance(desc)
+      utterance.rate = playbackRate
+      const matched = voices.find((v) => v.voiceURI === selectedVoiceURI)
+      if (matched) utterance.voice = matched
+      window.speechSynthesis.cancel()
+      window.speechSynthesis.speak(utterance)
+    }
+  }
+
+  const saveOffline = async () => {
+    try {
+      const res = await getPoiContent(poi.id, language, { preferCache: true })
+      const payload = res?.data || res
+      cachePoiContent(poi.id, language, payload)
+      setPoiContent(payload)
+      showToast({ title: 'Đã lưu offline' })
+    } catch {
+      showToast({ title: 'Lưu thất bại', message: 'Không thể tải nội dung POI.' })
+    }
   }
 
   return (
@@ -52,14 +102,44 @@ export function PoiDetails({ poi }: { poi: Poi }) {
             <div style={{ color: 'var(--muted)', fontSize: 13, minHeight: 20 }}>
                {isLoadingContent ? 'Loading...' : desc}
             </div>
-            {audioUrl && !isLoadingContent && (
-              <button 
-                className="btn btnGhost" 
-                style={{ marginTop: 8, padding: '4px 8px', fontSize: 13, background: 'rgba(255,255,255,0.1)' }}
-                onClick={playAudio}
-              >
-                🔊 Nghe
-              </button>
+            {!isLoadingContent && (
+              <div className="row" style={{ marginTop: 8, flexWrap: 'wrap' }}>
+                <button
+                  className="btn btnGhost"
+                  style={{ padding: '4px 8px', fontSize: 13, background: 'rgba(255,255,255,0.1)' }}
+                  onClick={playAudio}
+                >
+                  🔊 Nghe
+                </button>
+                <button className="btn" style={{ padding: '4px 8px', fontSize: 13 }} onClick={saveOffline}>
+                  💾 Lưu offline
+                </button>
+                <select
+                  className="select"
+                  style={{ width: 90, padding: '4px 8px', fontSize: 13 }}
+                  value={playbackRate}
+                  onChange={(e) => setPlaybackRate(Number(e.target.value))}
+                >
+                  <option value={0.8}>0.8x</option>
+                  <option value={1}>1.0x</option>
+                  <option value={1.2}>1.2x</option>
+                  <option value={1.5}>1.5x</option>
+                </select>
+                {voices.length > 0 && !audioUrl && (
+                  <select
+                    className="select"
+                    style={{ minWidth: 160, padding: '4px 8px', fontSize: 13 }}
+                    value={selectedVoiceURI}
+                    onChange={(e) => setSelectedVoiceURI(e.target.value)}
+                  >
+                    {voices.map((v) => (
+                      <option key={v.voiceURI} value={v.voiceURI}>
+                        {v.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
             )}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
@@ -190,9 +270,75 @@ export function PoiPage() {
   const { poiId } = useParams()
   const t = useT()
 
-  // TODO: Backend chưa có API public lấy chi tiết 1 POI theo ID (chi tiết hình ảnh, review, v.v.).
-  // Tạm thời giữ việc tra cứu mock data từ mảng POIS.
-  const poi = useMemo(() => POIS.find((p) => p.id === poiId), [poiId])
+  const [apiPoi, setApiPoi] = useState<ApiPoi | null>(null)
+  const [isLoadingPoi, setIsLoadingPoi] = useState(false)
+
+  useEffect(() => {
+    if (!poiId) return
+    setIsLoadingPoi(true)
+    getPoiById(poiId)
+      .then((res) => setApiPoi(res?.data ?? null))
+      .catch(() => setApiPoi(null))
+      .finally(() => setIsLoadingPoi(false))
+  }, [poiId])
+
+  const mockPoi = useMemo(() => POIS.find((p) => p.id === poiId), [poiId])
+
+  const poi = useMemo(() => {
+    if (!apiPoi && mockPoi) return mockPoi
+    if (!apiPoi) return undefined
+
+    const shortFromApi = apiPoi.short ?? apiPoi.descriptions ?? {}
+    const fallbackShort = mockPoi?.short ?? { vi: '', en: '', ja: '', zh: '', ko: '' }
+
+    const lat = apiPoi.lat ?? apiPoi.latitude ?? apiPoi.location?.coordinates?.[1] ?? mockPoi?.lat ?? 0
+    const lng = apiPoi.lng ?? apiPoi.longitude ?? apiPoi.location?.coordinates?.[0] ?? mockPoi?.lng ?? 0
+    const rating = apiPoi.average_rating ?? apiPoi.rating ?? mockPoi?.rating ?? 4.0
+    const priceLevel = (apiPoi.price_level ?? mockPoi?.priceLevel ?? 1) as 1 | 2 | 3
+
+    const rawVoucher = apiPoi.voucher ?? mockPoi?.voucher
+    const voucher = rawVoucher && rawVoucher.code && rawVoucher.description && rawVoucher.expiresAt
+      ? { code: rawVoucher.code, description: rawVoucher.description, expiresAt: rawVoucher.expiresAt }
+      : undefined
+
+    const normalizedReviews = (apiPoi.reviews ?? [])
+      .filter((r) => r?.author && typeof r.stars === 'number' && r?.text)
+      .map((r) => ({
+        author: r.author as string,
+        stars: r.stars as number,
+        text: r.text as string,
+      }))
+
+    return {
+      id: apiPoi.id ?? mockPoi?.id ?? poiId ?? 'unknown',
+      name: apiPoi.name ?? mockPoi?.name ?? 'POI',
+      category: mockPoi?.category ?? 'food',
+      imageUrl: apiPoi.imageUrl ?? apiPoi.image_url ?? mockPoi?.imageUrl,
+      lat,
+      lng,
+      rating: Number(rating),
+      priceLevel,
+      tags: apiPoi.tags ?? mockPoi?.tags ?? [],
+      short: {
+        vi: shortFromApi.vi ?? fallbackShort.vi,
+        en: shortFromApi.en ?? fallbackShort.en,
+        ja: shortFromApi.ja ?? fallbackShort.ja,
+        zh: shortFromApi.zh ?? fallbackShort.zh,
+        ko: shortFromApi.ko ?? fallbackShort.ko,
+      },
+      menuHighlights: apiPoi.menuHighlights ?? apiPoi.menu_highlights ?? mockPoi?.menuHighlights ?? [],
+      voucher,
+      reviews: normalizedReviews.length > 0 ? normalizedReviews : mockPoi?.reviews ?? [],
+    }
+  }, [apiPoi, mockPoi, poiId])
+
+  if (!poi && isLoadingPoi) {
+    return (
+      <AppShell>
+        <div className="card cardPad">Đang tải...</div>
+      </AppShell>
+    )
+  }
 
   if (!poi) {
     return (

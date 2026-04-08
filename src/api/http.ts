@@ -21,9 +21,19 @@ export class HttpError extends Error {
 const BASE_URL = import.meta.env.VITE_API_BASE_URL as string | undefined
 
 type Json = string | number | boolean | null | { [k: string]: Json } | Json[]
+// Sửa lỗi joinBaseUrl để xử lý đúng trường hợp BASE_URL có hoặc không có dấu gạch chéo ở cuối, và path có hoặc không có dấu gạch chéo ở đầu
+function joinBaseUrl(base: string, path: string) {
+  const [rawPath, rawQuery] = path.split('?')
+  const normalizedPath = rawPath.startsWith('/') ? rawPath.slice(1) : rawPath
+  const url = new URL(base)
+  const basePath = url.pathname.endsWith('/') ? url.pathname : `${url.pathname}/`
+  url.pathname = `${basePath}${normalizedPath}`
+  url.search = rawQuery ? `?${rawQuery}` : ''
+  return url.toString()
+}
 
 export async function apiFetch<TResponse>(path: string, init?: RequestInit & { json?: Json }): Promise<TResponse> {
-  const url = BASE_URL ? new URL(path, BASE_URL).toString() : path
+  const url = BASE_URL ? joinBaseUrl(BASE_URL, path) : path
 
   const headers = new Headers(init?.headers)
   if (init?.json !== undefined) headers.set('Content-Type', 'application/json')
