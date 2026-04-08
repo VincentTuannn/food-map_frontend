@@ -5,6 +5,7 @@ import { useAppStore } from '../../shared/store/appStore'
 
 export function RegisterPage() {
   const [email, setEmail] = useState('')
+  const [phoneNumber, setPhoneNumber] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -79,6 +80,17 @@ export function RegisterPage() {
                 placeholder="Ví dụ: example@mail.com"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Số điện thoại</div>
+              <input
+                type="number"
+                className="input"
+                placeholder="Ví dụ: 0123456789"
+                value={phoneNumber}
+                onChange={e => setPhoneNumber(e.target.value)}
               />
             </div>
 
