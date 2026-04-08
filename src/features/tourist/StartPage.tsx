@@ -1,22 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAppStore, type Language } from '../../shared/store/appStore'
+import { useAppStore } from '../../shared/store/appStore'
 import { AppShell } from '../../shared/ui/AppShell'
 import { useT } from '../../shared/i18n/useT'
 import QRCode from 'react-qr-code'
 
-const LANGS: Array<{ id: Language; label: string; sub: string }> = [
-  { id: 'vi', label: 'Tiếng Việt', sub: 'Thuyết minh tiếng Việt' },
-  { id: 'en', label: 'English', sub: 'English narration' },
-  { id: 'ja', label: '日本語', sub: '日本語ナレーション' },
-  { id: 'zh', label: '中文', sub: '中文语音讲解' },
-  { id: 'ko', label: '한국어', sub: '한국어 오디오 가이드' },
-]
-
 export function StartPage() {
   const nav = useNavigate()
-  const language = useAppStore((s) => s.language)
-  const setLanguage = useAppStore((s) => s.setLanguage)
   const setTourCode = useAppStore((s) => s.setTourCode)
   const showToast = useAppStore((s) => s.showToast)
   const t = useT()
@@ -96,20 +86,7 @@ export function StartPage() {
             )}
           </div>
 
-          <div>
-            <div style={{ fontWeight: 700, marginBottom: 8 }}>{t('tourist.start.lang')}</div>
-            <select
-              className="select"
-              value={language}
-              onChange={(e) => setLanguage(e.target.value as Language)}
-            >
-              {LANGS.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.label} - {l.sub}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Language selector moved to TopBar */}
         </div>
 
         <div className="hr" />

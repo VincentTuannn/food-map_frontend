@@ -12,6 +12,10 @@ export type AppState = {
   language: Language
   setLanguage: (lang: Language) => void
 
+  userToken?: string
+  setUserToken: (t?: string) => void
+
+
   theme: ThemeMode
   setTheme: (t: ThemeMode) => void
 
@@ -28,18 +32,18 @@ export type AppState = {
   showToast: (t?: { title: string; message?: string }) => void
 }
 
-function loadPrefs(): { language?: Language; theme?: ThemeMode } {
+function loadPrefs(): { language?: Language; theme?: ThemeMode; userToken?: string } {
   try {
     const raw = localStorage.getItem('food-map:prefs')
     if (!raw) return {}
-    const j = JSON.parse(raw) as { language?: Language; theme?: ThemeMode }
+    const j = JSON.parse(raw) as { language?: Language; theme?: ThemeMode; userToken?: string }
     return j ?? {}
   } catch {
     return {}
   }
 }
 
-function savePrefs(prefs: { language: Language; theme: ThemeMode }) {
+function savePrefs(prefs: { language: Language; theme: ThemeMode; userToken?: string }) {
   try {
     localStorage.setItem('food-map:prefs', JSON.stringify(prefs))
   } catch {
@@ -51,15 +55,22 @@ export const useAppStore = create<AppState>((set) => ({
   language: loadPrefs().language ?? 'vi',
   setLanguage: (language) =>
     set((s) => {
-      savePrefs({ language, theme: s.theme })
+      savePrefs({ language, theme: s.theme, userToken: s.userToken })
       return { language }
     }),
 
   theme: loadPrefs().theme ?? 'dark',
   setTheme: (theme) =>
     set((s) => {
-      savePrefs({ language: s.language, theme })
+      savePrefs({ language: s.language, theme, userToken: s.userToken })
       return { theme }
+    }),
+
+  userToken: loadPrefs().userToken,
+  setUserToken: (userToken) =>
+    set((s) => {
+      savePrefs({ language: s.language, theme: s.theme, userToken })
+      return { userToken }
     }),
 
   tourCode: undefined,

@@ -1,3 +1,5 @@
+import { useAppStore } from '../shared/store/appStore'
+
 export type ApiError = {
   status: number
   message: string
@@ -25,6 +27,11 @@ export async function apiFetch<TResponse>(path: string, init?: RequestInit & { j
 
   const headers = new Headers(init?.headers)
   if (init?.json !== undefined) headers.set('Content-Type', 'application/json')
+  
+  const token = useAppStore.getState().userToken
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`)
+  }
 
   const res = await fetch(url, {
     ...init,

@@ -1,0 +1,135 @@
+﻿// Controller xá»­ lÃ½ Auth cho User vÃ  Merchant
+const authService = require('../services/authService');
+const { validate, body } = require('../middlewares/validation');
+
+class AuthController {
+    // ÄÄƒng kÃ½ user
+    registerUser = [
+        // Validate dá»¯ liá»‡u Ä‘áº§u vÃ o
+        validate([
+            body('email').isEmail().normalizeEmail().withMessage('Email há»£p lá»‡ báº¯t buá»™c'),
+            body('password').isLength({ min: 6 }).withMessage('Máº­t kháº©u tá»‘i thiá»ƒu 6 kÃ½ tá»±'),
+
+            // âœ… Validator phone má»›i - há»— trá»£ +84, 84, 0
+            body('phone')
+                .optional({ checkFalsy: true })                    // cho phÃ©p khÃ´ng truyá»n hoáº·c giÃ¡ trá»‹ falsy
+                .isString().withMessage('Sá»‘ Ä‘iá»‡n thoáº¡i pháº£i lÃ  chuá»—i')
+                .custom((value) => {
+                    if (!value || String(value).trim() === '') return true;
+
+                    // XÃ³a khoáº£ng tráº¯ng náº¿u cÃ³
+                    const cleaned = String(value).replace(/\s+/g, '');
+
+                    // Regex há»— trá»£ tá»‘t +84 / 84 / 0 vÃ  cÃ¡c Ä‘áº§u sá»‘ di Ä‘á»™ng VN hiá»‡n nay
+                    const vnPhoneRegex = /^(\+84|84|0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}$/;
+
+                    if (!vnPhoneRegex.test(cleaned)) {
+                        throw new Error('Sá»‘ Ä‘iá»‡n thoáº¡i Viá»‡t Nam khÃ´ng há»£p lá»‡');
+                    }
+                    return true;
+                }),
+        ]),
+
+        // Xá»­ lÃ½ Ä‘Äƒng kÃ½
+        async (req, res, next) => {
+            try {
+                const result = await authService.registerUser(req.body);
+                res.status(201).json({
+                    success: true,
+                    data: result,
+                });
+            } catch (err) {
+                next(err);
+            }
+        },
+    ];
+
+    // ÄÄƒng kÃ½ admin (chá»‰ admin gá»i Ä‘Æ°á»£c)
+    registerAdmin = [
+        // Validate dá»¯ liá»‡u Ä‘áº§u vÃ o
+        validate([
+            body('email').isEmail().normalizeEmail().withMessage('Email há»£p lá»‡ báº¯t buá»™c'),
+            body('password').isLength({ min: 6 }).withMessage('Máº­t kháº©u tá»‘i thiá»ƒu 6 kÃ½ tá»±'),
+        ]),
+        // Xá»­ lÃ½ táº¡o admin
+        async (req, res, next) => {
+            try {
+                const result = await authService.registerAdmin(req.body);
+                res.status(201).json({
+                    success: true,
+                    data: result,
+                });
+            } catch (err) {
+                next(err);
+            }
+        },
+    ];
+
+    // ÄÄƒng kÃ½ merchant
+    registerMerchant = [
+        // Validate dá»¯ liá»‡u Ä‘áº§u vÃ o
+        validate([
+            body('email').isEmail().normalizeEmail().withMessage('Email há»£p lá»‡ báº¯t buá»™c'),
+            body('password').isLength({ min: 6 }).withMessage('Máº­t kháº©u tá»‘i thiá»ƒu 6 kÃ½ tá»±'),
+            body('business_name').notEmpty().withMessage('TÃªn quÃ¡n báº¯t buá»™c'),
+        ]),
+        // Xá»­ lÃ½ Ä‘Äƒng kÃ½
+        async (req, res, next) => {
+            try {
+                const result = await authService.registerMerchant(req.body);
+                res.status(201).json({
+                    success: true,
+                    data: result,
+                });
+            } catch (err) {
+                next(err);
+            }
+        },
+    ];
+
+    // ÄÄƒng nháº­p chung
+    login = [
+        // Validate dá»¯ liá»‡u Ä‘áº§u vÃ o
+        validate([
+            body('email').isEmail().normalizeEmail().withMessage('Email há»£p lá»‡ báº¯t buá»™c'),
+            body('password').notEmpty().withMessage('Máº­t kháº©u báº¯t buá»™c'),
+        ]),
+        // Xá»­ lÃ½ Ä‘Äƒng nháº­p
+        async (req, res, next) => {
+            try {
+                const { email, password } = req.body;
+                const result = await authService.login(email, password);
+                res.json({
+                    success: true,
+                    data: result,
+                });
+            } catch (err) {
+                next(err);
+            }
+        },
+    ];
+
+    // ÄÄƒng nháº­p merchant (deprecated, dÃ¹ng login chung)
+    loginMerchant = [
+        // Validate dá»¯ liá»‡u Ä‘áº§u vÃ o
+        validate([
+            body('email').isEmail().normalizeEmail().withMessage('Email há»£p lá»‡ báº¯t buá»™c'),
+            body('password').notEmpty().withMessage('Máº­t kháº©u báº¯t buá»™c'),
+        ]),
+        // Xá»­ lÃ½ Ä‘Äƒng nháº­p
+        async (req, res, next) => {
+            try {
+                const { email, password } = req.body;
+                const result = await authService.loginMerchant(email, password);
+                res.json({
+                    success: true,
+                    data: result,
+                });
+            } catch (err) {
+                next(err);
+            }
+        },
+    ];
+}
+
+module.exports = new AuthController();

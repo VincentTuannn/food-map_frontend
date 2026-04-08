@@ -1,11 +1,19 @@
 import { useLocation, useNavigate } from 'react-router-dom'
-import { useAppStore } from '../store/appStore'
+import { useAppStore, type Language } from '../store/appStore'
 import { useT } from '../i18n/useT'
+
+const LANGS: Array<{ id: Language; label: string }> = [
+  { id: 'vi', label: 'Tiếng Việt' },
+  { id: 'en', label: 'English' },
+  { id: 'ja', label: '日本語' },
+  { id: 'zh', label: '中文' },
+  { id: 'ko', label: '한국어' },
+]
 
 export function TopBar() {
   const nav = useNavigate()
   const location = useLocation()
-  const { language, radiusMeters, theme, setTheme } = useAppStore()
+  const { language, setLanguage, userToken, setUserToken, radiusMeters, theme, setTheme } = useAppStore()
   const t = useT()
 
   const canGoBack = location.pathname !== '/tourist/start'
@@ -29,11 +37,23 @@ export function TopBar() {
           <div className="brand">
             <div className="brandTitle">{t('app.name')}</div>
             <div className="brandSub">
-              {area} · Lang: {language.toUpperCase()} · Radius: {radiusMeters}m
+              {area} · Radius: {radiusMeters}m
             </div>
           </div>
         </div>
         <div className="row">
+          <select
+            className="select"
+            value={language}
+            onChange={(e) => setLanguage(e.target.value as Language)}
+            style={{ marginRight: 8, padding: '4px 8px', fontSize: 13, height: 32 }}
+          >
+            {LANGS.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.label}
+              </option>
+            ))}
+          </select>
           <button
             className="btn btnGhost"
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
@@ -44,6 +64,11 @@ export function TopBar() {
           <button className="btn btnGhost" onClick={() => nav('/tourist/premium')}>
             {t('top.premium')}
           </button>
+          {userToken && (
+            <button className="btn btnGhost" onClick={() => setUserToken(undefined)} style={{ color: '#ef4444' }}>
+              Đăng xuất
+            </button>
+          )}
         </div>
       </div>
     </header>

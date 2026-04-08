@@ -1,8 +1,11 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, Outlet } from 'react-router-dom'
+import { useAppStore } from './shared/store/appStore'
 import { StartPage } from './features/tourist/StartPage'
 import { MapPage } from './features/tourist/MapPage'
 import { PoiPage } from './features/tourist/PoiPage'
 import { PremiumPage } from './features/tourist/PremiumPage'
+import { LoginPage } from './features/tourist/LoginPage'
+import { RegisterPage } from './features/tourist/RegisterPage'
 import { NotFoundPage } from './shared/ui/NotFoundPage'
 import { MerchantLayout } from './features/merchant/MerchantLayout'
 import { MerchantHomePage } from './features/merchant/MerchantHomePage'
@@ -17,16 +20,27 @@ import { AdminUsersPage } from './features/admin/AdminUsersPage'
 import { AdminConfigPage } from './features/admin/AdminConfigPage'
 import { AdminFinancePage } from './features/admin/AdminFinancePage'
 
+function TouristAuthRoute() {
+  const token = useAppStore(s => s.userToken)
+  if (!token) return <Navigate to="/login" replace />
+  return <Outlet />
+}
+
 export function App() {
   return (
     <Routes>
       {/* New actor-based routes */}
       <Route path="/" element={<Navigate to="/tourist/start" replace />} />
+      
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
 
-      <Route path="/tourist/start" element={<StartPage />} />
-      <Route path="/tourist/map" element={<MapPage />} />
-      <Route path="/tourist/poi/:poiId" element={<PoiPage />} />
-      <Route path="/tourist/premium" element={<PremiumPage />} />
+      <Route path="/tourist" element={<TouristAuthRoute />}>
+        <Route path="start" element={<StartPage />} />
+        <Route path="map" element={<MapPage />} />
+        <Route path="poi/:poiId" element={<PoiPage />} />
+        <Route path="premium" element={<PremiumPage />} />
+      </Route>
 
       <Route path="/merchant" element={<MerchantLayout />}>
         <Route index element={<MerchantHomePage />} />
