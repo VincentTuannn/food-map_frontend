@@ -14,6 +14,8 @@ export function LoginPage() {
   const showToast = useAppStore((s) => s.showToast)
 
   const handleLogin = async (e: React.FormEvent) => {
+    //Kiểm tra xem method chạy chưa
+    console.log('Attempting login with:', { email, password: password ? '***' : '' })
     e.preventDefault()
     if (!email || !password) {
       setErrorMsg('Vui lòng nhập email và mật khẩu')
@@ -24,6 +26,7 @@ export function LoginPage() {
     setLoading(true)
     try {
       const res = await loginUser(email, password)
+      console.log('Login response:', res) 
       if (res.success && res.data?.token) {
         setUserToken(res.data.token)
         showToast({ title: 'Đăng nhập thành công!' })
