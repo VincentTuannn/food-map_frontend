@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { POIS } from '../../shared/mock/pois'
 import { useAppStore } from '../../shared/store/appStore'
 import { AppShell } from '../../shared/ui/AppShell'
 import { useT } from '../../shared/i18n/useT'
 import type { Poi } from '../../shared/domain/poi'
+import { getPoiContent } from '../../api/services/content'
 
 export function PoiDetails({ poi }: { poi: Poi }) {
   const language = useAppStore((s) => s.language)
@@ -14,7 +15,30 @@ export function PoiDetails({ poi }: { poi: Poi }) {
   const [reviewStars, setReviewStars] = useState(5)
   const [reviewText, setReviewText] = useState('')
 
-  const desc = language === 'vi' ? poi.short.vi : language === 'ja' ? poi.short.ja : language === 'zh' ? poi.short.zh : language === 'ko' ? poi.short.ko : poi.short.en
+  const [poiContent, setPoiContent] = useState<any>(null)
+  const [isLoadingContent, setIsLoadingContent] = useState(false)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  useEffect(() => {
+    setIsLoadingContent(true)
+    getPoiContent(poi.id, language)
+      .then(res => setPoiContent(res?.data || res))
+      .catch(err => console.error("Failed to fetch POI content:", err))
+      .finally(() => setIsLoadingContent(false))
+  }, [poi.id, language])
+
+  const desc = poiContent?.description || poiContent?.text || (language === 'vi' ? poi.short.vi : language === 'ja' ? poi.short.ja : language === 'zh' ? poi.short.zh : language === 'ko' ? poi.short.ko : poi.short.en)
+  const audioUrl = poiContent?.audio_url || poiContent?.audioUrl
+
+  const playAudio = () => {
+    if (!audioUrl) return
+    if (audioRef.current) {
+      audioRef.current.pause()
+    }
+    const audio = new Audio(audioUrl)
+    audioRef.current = audio
+    audio.play()
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -23,9 +47,20 @@ export function PoiDetails({ poi }: { poi: Poi }) {
       )}
       <div className="card cardPad">
         <div className="rowBetween">
-          <div>
+          <div style={{ flex: 1, paddingRight: 10 }}>
             <div style={{ fontSize: 18, fontWeight: 900 }}>{poi.name}</div>
-            <div style={{ color: 'var(--muted)', fontSize: 13 }}>{desc}</div>
+            <div style={{ color: 'var(--muted)', fontSize: 13, minHeight: 20 }}>
+               {isLoadingContent ? 'Loading...' : desc}
+            </div>
+            {audioUrl && !isLoadingContent && (
+              <button 
+                className="btn btnGhost" 
+                style={{ marginTop: 8, padding: '4px 8px', fontSize: 13, background: 'rgba(255,255,255,0.1)' }}
+                onClick={playAudio}
+              >
+                🔊 Nghe
+              </button>
+            )}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
             <span className="pill">⭐ {poi.rating.toFixed(1)}</span>

@@ -11,7 +11,7 @@ import type {
 } from "../../api/services/directions";
 import { mockDirections } from "../../api/mocks/directions.mock";
 import { PoiDetails } from "./PoiPage";
-import { getPoiContent, type ContentLanguage } from "../../api/services/content";
+import { getPoiContent } from "../../api/services/content";
 
 import Map, { Marker, Popup } from "react-map-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
@@ -56,12 +56,10 @@ export function MapPage() {
 
   const playTTS = async (poi: any, text: string, langArg: string, voiceURI?: string) => {
     try {
-      // Map global language to ContentLanguage ('vi' | 'en' | 'ja')
-      const contentLang = (language === 'vi' || language === 'ja') ? language as ContentLanguage : 'en';
-      const res = await getPoiContent(poi.id, contentLang);
+      const res = await getPoiContent(poi.id, language);
       
       // Attempt to extract the URL depending on how the backend ultimately builds the response payload
-      const audioUrl = (res as any)?.data?.audio_url || (res as any)?.audio_url || res?.audioUrl;
+      const audioUrl = (res as any)?.data?.audio_url || (res as any)?.audio_url || res?.audioUrl || res?.data?.audioUrl;
       
       if (audioUrl) {
         if (currentAudioRef.current) {
@@ -196,8 +194,8 @@ export function MapPage() {
       <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", zIndex: 0 }}>
         <Map
           initialViewState={{
-            longitude: position ? position.lng : 105.8480,
-            latitude: position ? position.lat : 21.0315,
+            longitude: position ? position.lng : 106.6669,
+            latitude: position ? position.lat : 10.7548,
             zoom: 16,
           }}
           mapStyle={theme === 'dark' ? "mapbox://styles/mapbox/navigation-night-v1" : "mapbox://styles/mapbox/streets-v12"}
