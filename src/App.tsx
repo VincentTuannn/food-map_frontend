@@ -31,7 +31,7 @@ export function App() {
     <Routes>
       {/* New actor-based routes */}
       <Route path="/" element={<Navigate to="/tourist/start" replace />} />
-      
+
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
 

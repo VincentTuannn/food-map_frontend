@@ -37,11 +37,11 @@ export function RegisterPage() {
         // Auto login after register
         const loginRes = await loginUser(email, password)
         if (loginRes.success && loginRes.data?.token) {
-           setUserToken(loginRes.data.token)
-           showToast({ title: 'Đăng ký thành công!' })
-           nav('/tourist/start')
+          setUserToken(loginRes.data.token)
+          showToast({ title: 'Đăng ký thành công!' })
+          nav('/tourist/start')
         } else {
-           nav('/login')
+          nav('/login')
         }
       } else {
         setErrorMsg('Đăng ký thất bại: ' + JSON.stringify(res))
@@ -63,7 +63,7 @@ export function RegisterPage() {
       <main className="main" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', justifyContent: 'center', padding: 16 }}>
         <div className="card cardPad">
           <h2 style={{ textAlign: 'center', marginBottom: 24, fontSize: 24, fontWeight: 800 }}>Tạo Tài Khoản</h2>
-          
+
           {errorMsg && (
             <div style={{ background: 'rgba(255, 0, 0, 0.1)', color: '#ff4d4f', padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
               {errorMsg}
@@ -73,9 +73,9 @@ export function RegisterPage() {
           <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div>
               <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Email</div>
-              <input 
-                type="email" 
-                className="input" 
+              <input
+                type="email"
+                className="input"
                 placeholder="Ví dụ: example@mail.com"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
@@ -84,9 +84,9 @@ export function RegisterPage() {
 
             <div>
               <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Mật Khẩu</div>
-              <input 
-                type="password" 
-                className="input" 
+              <input
+                type="password"
+                className="input"
                 placeholder="Tối thiểu 6 ký tự"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
@@ -95,9 +95,9 @@ export function RegisterPage() {
 
             <div>
               <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Xác Nhận Mật Khẩu</div>
-              <input 
-                type="password" 
-                className="input" 
+              <input
+                type="password"
+                className="input"
                 placeholder="Nhập lại mật khẩu"
                 value={confirmPassword}
                 onChange={e => setConfirmPassword(e.target.value)}
@@ -105,7 +105,7 @@ export function RegisterPage() {
             </div>
 
             <button type="submit" className="btn btnPrimary" disabled={loading} style={{ height: 44, marginTop: 10 }}>
-              {loading ? 'Đang xử lý...' : 'Đăng Ký Khám Phá'}
+              {loading ? 'Đang xử lý...' : 'Đăng Ký'}
             </button>
           </form>
 
