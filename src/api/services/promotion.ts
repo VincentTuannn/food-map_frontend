@@ -1,12 +1,19 @@
 import { apiFetch } from '../http'
 
-export type ClaimVoucherResponse = {
-  poiId: string
-  code: string
-  expiresAt: string
+export type Promotion = {
+  id: string
+  poiId?: string
+  title?: string
+  description?: string
+  code?: string
+  expiresAt?: string
+  status?: string
 }
 
-export async function claimVoucher(poiId: string) {
-  return apiFetch<ClaimVoucherResponse>(`/api/promotion/pois/${encodeURIComponent(poiId)}/claim`, { method: 'POST' })
+type ListResponse<T> = { data?: T }
+
+export async function getPromotionsByPoi(poiId: string): Promise<Promotion[]> {
+  const res = await apiFetch<ListResponse<Promotion[]> | Promotion[]>(`/promotions/poi/${encodeURIComponent(poiId)}`)
+  return (res as ListResponse<Promotion[]>).data ?? (res as Promotion[])
 }
 
