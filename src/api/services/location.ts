@@ -28,7 +28,10 @@ export async function getNearbyPois(req: NearbyPoiRequest): Promise<NearbyPoiRes
   params.set('radius', String(req.radiusMeters))
   if (req.limit) params.set('limit', String(req.limit))
 
-  const res = await apiFetch<any>(`/pois/nearby?${params.toString()}`)
+  const res = await apiFetch<any>(`/pois/nearby?${params.toString()}`, {
+    cache: 'no-store',
+    headers: { 'Cache-Control': 'no-cache' },
+  })
 
   return {
     items: (res?.data || []).map((p: any) => ({

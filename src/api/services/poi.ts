@@ -3,6 +3,7 @@ import { apiFetch } from '../http'
 export type ApiPoi = {
   id?: string
   name?: string
+  category?: 'food' | 'drink' | 'sight' | string
   merchant_id?: string
   location?: { coordinates?: [number, number] }
   lat?: number
