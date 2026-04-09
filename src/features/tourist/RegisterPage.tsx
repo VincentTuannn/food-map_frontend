@@ -17,7 +17,7 @@ export function RegisterPage() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email || !password || !confirmPassword) {
+    if (!email || !phoneNumber || !password || !confirmPassword) {
       setErrorMsg('Vui lòng điền đủ thông tin')
       return
     }
