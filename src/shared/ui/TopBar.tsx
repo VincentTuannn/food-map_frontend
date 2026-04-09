@@ -1,6 +1,8 @@
+import { useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAppStore, type Language } from '../store/appStore'
 import { useT } from '../i18n/useT'
+import { updateUserLanguage } from '../../api/services/user'
 
 const LANGS: Array<{ id: Language; label: string }> = [
   { id: 'vi', label: 'Tiếng Việt' },
@@ -15,6 +17,9 @@ export function TopBar() {
   const location = useLocation()
   const { language, setLanguage, userToken, setUserToken, radiusMeters, theme, setTheme } = useAppStore()
   const t = useT()
+  const lastLanguageRef = useRef<Language | undefined>(undefined)
+  const syncTimerRef = useRef<number | undefined>(undefined)
+  const supportedLanguages: Language[] = ['vi', 'en', 'zh']
 
   const canGoBack = location.pathname !== '/tourist/start'
   const area = location.pathname.startsWith('/admin')
@@ -22,6 +27,19 @@ export function TopBar() {
     : location.pathname.startsWith('/merchant')
       ? 'Merchant'
       : 'Tourist'
+
+  useEffect(() => {
+    if (!userToken) return
+    if (lastLanguageRef.current === language) return
+    if (!supportedLanguages.includes(language)) return
+    if (syncTimerRef.current) window.clearTimeout(syncTimerRef.current)
+    syncTimerRef.current = window.setTimeout(() => {
+      updateUserLanguage(language).catch(() => {
+        // ignore
+      })
+      lastLanguageRef.current = language
+    }, 400)
+  }, [language, userToken])
 
   return (
     <header className="topBar">

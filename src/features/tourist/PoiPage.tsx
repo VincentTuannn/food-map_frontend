@@ -10,8 +10,10 @@ import { getPoiById } from '../../api/services/poi'
 import { getPromotionsByPoi, type Promotion } from '../../api/services/promotion'
 import { claimVoucher } from '../../api/services/userVouchers'
 import { createOrUpdateReview, getReviewsByPoi, type Review } from '../../api/services/reviews'
+import { logTrackingEvent } from '../../api/services/trackingLogs'
 
 export function PoiDetails({ poi }: { poi: Poi }) {
+  const nav = useNavigate()
   const language = useAppStore((s) => s.language)
   const showToast = useAppStore((s) => s.showToast)
   const t = useT()
@@ -63,7 +65,7 @@ export function PoiDetails({ poi }: { poi: Poi }) {
     setIsLoadingPromotions(true)
     getPromotionsByPoi(poi.id)
       .then((items) => setPromotions(items || []))
-      .catch(() => showToast({ title: 'Khong tai duoc khuyen mai' }))
+      .catch(() => showToast({ title: 'Không tải được khuyến mãi' }))
       .finally(() => setIsLoadingPromotions(false))
   }, [poi.id, showToast])
 
@@ -71,7 +73,7 @@ export function PoiDetails({ poi }: { poi: Poi }) {
     setIsLoadingReviews(true)
     getReviewsByPoi(poi.id)
       .then((items) => setReviews(items || []))
-      .catch(() => showToast({ title: 'Khong tai duoc danh gia' }))
+      .catch(() => showToast({ title: 'Không tải được đánh giá' }))
       .finally(() => setIsLoadingReviews(false))
   }, [poi.id, showToast])
 
@@ -113,24 +115,28 @@ export function PoiDetails({ poi }: { poi: Poi }) {
     }
   }
 
+  const goToDirections = () => {
+    nav(`/tourist/map?to=${encodeURIComponent(poi.id)}`)
+  }
+
   return (
     <div className="stack">
       <div className="poiHero">
         {poi.imageUrl && <img className="poiHeroImage" src={poi.imageUrl} alt={poi.name} />}
-        <div className="poiHeroContent">
-          <div className="rowBetween">
+        <div className="poiHeroOverlay">
+          <div className="poiHeroMain">
             <div>
-              <div className="heroTitle">{poi.name}</div>
-              <div className="sectionSub">{isLoadingContent ? 'Loading...' : desc}</div>
+              <div className="poiHeroTitle">{poi.name}</div>
+              <div className="poiHeroDesc">{isLoadingContent ? 'Đang tải mô tả...' : desc}</div>
             </div>
-            <div className="poiMetaRow">
-              <span className="tag">⭐ {poi.rating.toFixed(1)}</span>
-              <span className="tag">{'₫'.repeat(poi.priceLevel)}</span>
+            <div className="poiQuickStats">
+              <span className="pill">⭐ {poi.rating.toFixed(1)}</span>
+              <span className="pill">{'₫'.repeat(poi.priceLevel)}</span>
+              <span className="pill">{poi.category === 'drink' ? 'Trà/Cà phê' : poi.category === 'sight' ? 'Điểm đến' : 'Ẩm thực'}</span>
             </div>
           </div>
-
           <div className="poiMetaRow">
-            {(poi.tags || []).slice(0, 3).map((tag) => (
+            {(poi.tags || []).slice(0, 4).map((tag) => (
               <span key={tag} className="tag">{tag}</span>
             ))}
             <span className="badge">Tự động phát audio</span>
@@ -143,6 +149,9 @@ export function PoiDetails({ poi }: { poi: Poi }) {
               </button>
               <button className="btn" onClick={saveOffline}>
                 💾 Lưu offline
+              </button>
+              <button className="btn" onClick={goToDirections}>
+                🧭 Chỉ đường
               </button>
               <select className="select" style={{ width: 90 }} value={playbackRate} onChange={(e) => setPlaybackRate(Number(e.target.value))}>
                 <option value={0.8}>0.8x</option>
@@ -183,10 +192,10 @@ export function PoiDetails({ poi }: { poi: Poi }) {
         <div className="card cardPad poiSection">
           <div className="sectionTitle">{t('tourist.poi.voucherTitle')}</div>
           {isLoadingPromotions && (
-            <div className="muted">Dang tai khuyen mai...</div>
+            <div className="muted">Đang tải khuyến mãi...</div>
           )}
           {!isLoadingPromotions && promotions.length === 0 && (
-            <div className="muted">Khong co khuyen mai nao.</div>
+            <div className="muted">Không có khuyến mãi nào.</div>
           )}
           {!isLoadingPromotions && promotions.length > 0 && (
             <div className="stack" style={{ gap: 8 }}>
@@ -197,7 +206,7 @@ export function PoiDetails({ poi }: { poi: Poi }) {
                       <div style={{ fontWeight: 700 }}>{promo.title ?? 'Khuyen mai'}</div>
                       <div className="sectionSub">{promo.description ?? ''}</div>
                     </div>
-                    {promo.expiresAt && <span className="tag">Het han {promo.expiresAt}</span>}
+                    {promo.expiresAt && <span className="tag">Hết hạn {promo.expiresAt}</span>}
                   </div>
                   {promo.code && (
                     <div className="tag" style={{ marginTop: 8 }}>
@@ -215,18 +224,21 @@ export function PoiDetails({ poi }: { poi: Poi }) {
                           const code = (res as any)?.code ?? promo.code
                           if (code) {
                             await navigator.clipboard.writeText(code)
-                            showToast({ title: 'Da nhan voucher', message: code })
+                            showToast({ title: 'Đã nhận voucher', message: code })
                           } else {
-                            showToast({ title: 'Da nhan voucher' })
+                            showToast({ title: 'Đã nhận voucher' })
                           }
+                          logTrackingEvent({ event: 'voucher_claim', poiId: poi.id, promotionId: promo.id }).catch(
+                            () => undefined,
+                          )
                         } catch {
-                          showToast({ title: 'Nhan voucher that bai' })
+                          showToast({ title: 'Nhận voucher thất bại' })
                         } finally {
                           setIsClaimingVoucher(false)
                         }
                       }}
                     >
-                      {isClaimingVoucher ? 'Dang xu ly...' : 'Nhan voucher'}
+                      {isClaimingVoucher ? 'Đang xử lý...' : 'Nhận voucher'}
                     </button>
                   </div>
                 </div>
@@ -235,7 +247,7 @@ export function PoiDetails({ poi }: { poi: Poi }) {
           )}
           <button
             className="btn"
-            onClick={() => showToast({ title: t('tourist.poi.navigateDemoTitle'), message: t('tourist.poi.navigateDemoDesc') })}
+            onClick={goToDirections}
           >
             {t('tourist.poi.navigateTo')}
           </button>
@@ -244,14 +256,39 @@ export function PoiDetails({ poi }: { poi: Poi }) {
 
       <div className="card cardPad poiSection">
         <div className="rowBetween">
+          <div className="sectionTitle">Thông tin nhanh</div>
+          <span className="pill">Gợi ý</span>
+        </div>
+        <div className="poiInfoGrid">
+          <div className="poiInfoCard">
+            <div className="poiInfoLabel">Danh mục</div>
+            <div className="poiInfoValue">{poi.category === 'drink' ? 'Trà/Cà phê' : poi.category === 'sight' ? 'Điểm đến' : 'Ẩm thực'}</div>
+          </div>
+          <div className="poiInfoCard">
+            <div className="poiInfoLabel">Mức giá</div>
+            <div className="poiInfoValue">{'₫'.repeat(poi.priceLevel)}</div>
+          </div>
+          <div className="poiInfoCard">
+            <div className="poiInfoLabel">Đánh giá</div>
+            <div className="poiInfoValue">{poi.rating.toFixed(1)} / 5</div>
+          </div>
+          <div className="poiInfoCard">
+            <div className="poiInfoLabel">Trạng thái</div>
+            <div className="poiInfoValue">Chưa có dữ liệu</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="card cardPad poiSection">
+        <div className="rowBetween">
           <div className="sectionTitle">Trải nghiệm tại quán</div>
           <span className="tag">360°</span>
         </div>
-        <div className="sectionSub">Menu điện tử, ảnh không gian và review thật.</div>
+        <div className="sectionSub">Menu điện tử, ảnh không gian và đánh giá thật.</div>
         <div className="poiActionBar">
           <button className="btn">📷 Xem ảnh 360</button>
           <button className="btn">🧾 Menu điện tử</button>
-          <button className="btn">🧭 Chỉ đường</button>
+          <button className="btn" onClick={goToDirections}>🧭 Chỉ đường</button>
         </div>
       </div>
 
@@ -287,38 +324,41 @@ export function PoiDetails({ poi }: { poi: Poi }) {
                 className="btn btnPrimary"
                 onClick={async () => {
                   if (!reviewText.trim()) {
-                    showToast({ title: 'Vui long nhap noi dung' })
+                    showToast({ title: 'Vui lòng nhập nội dung' })
                     return
                   }
                   try {
                     await createOrUpdateReview(poi.id, reviewStars, reviewText.trim())
                     const items = await getReviewsByPoi(poi.id)
                     setReviews(items || [])
-                    showToast({ title: 'Da gui danh gia' })
+                    showToast({ title: 'Đã gửi đánh giá' })
+                    logTrackingEvent({ event: 'review_submit', poiId: poi.id, meta: { stars: reviewStars } }).catch(
+                      () => undefined,
+                    )
                     setShowReviewInput(false)
                     setReviewText('')
                   } catch {
-                    showToast({ title: 'Gui danh gia that bai' })
+                    showToast({ title: 'Gửi đánh giá thất bại' })
                   }
                 }}
               >
-                Dang bai
+                Đăng bài
               </button>
             </div>
           </div>
         )}
         {isLoadingReviews && (
-          <div className="muted">Dang tai danh gia...</div>
+          <div className="muted">Đang tải đánh giá...</div>
         )}
         {!isLoadingReviews && reviews.length === 0 && (
-          <div className="muted">Chua co danh gia nao.</div>
+          <div className="muted">Chưa có đánh giá nào.</div>
         )}
         {!isLoadingReviews && reviews.length > 0 && (
           <div style={{ display: 'grid', gap: 10 }}>
             {reviews.map((r, idx) => (
               <div key={r.id ?? idx} className="card cardPad" style={{ background: 'rgba(255,255,255,0.06)' }}>
                 <div className="rowBetween">
-                  <div style={{ fontWeight: 800 }}>{r.author ?? 'Nguoi dung'}</div>
+                  <div style={{ fontWeight: 800 }}>{r.author ?? 'Người dùng'}</div>
                   <span className="tag">⭐ {r.stars ?? 0}/5</span>
                 </div>
                 <div className="muted" style={{ marginTop: 6 }}>{r.text ?? ''}</div>

@@ -4,6 +4,9 @@ import { StartPage } from './features/tourist/StartPage'
 import { MapPage } from './features/tourist/MapPage'
 import { PoiPage } from './features/tourist/PoiPage'
 import { PremiumPage } from './features/tourist/PremiumPage'
+import { MyToursPage } from './features/tourist/MyToursPage'
+import { MyTourDetailPage } from './features/tourist/MyTourDetailPage'
+import { SharedTourPage } from './features/tourist/SharedTourPage'
 import { LoginPage } from './features/tourist/LoginPage'
 import { RegisterPage } from './features/tourist/RegisterPage'
 import { NotFoundPage } from './shared/ui/NotFoundPage'
@@ -40,7 +43,11 @@ export function App() {
         <Route path="map" element={<MapPage />} />
         <Route path="poi/:poiId" element={<PoiPage />} />
         <Route path="premium" element={<PremiumPage />} />
+        <Route path="tours" element={<MyToursPage />} />
+        <Route path="tours/:tourId" element={<MyTourDetailPage />} />
       </Route>
+
+      <Route path="/tour/shared/:shareToken" element={<SharedTourPage />} />
 
       <Route path="/merchant" element={<MerchantLayout />}>
         <Route index element={<MerchantHomePage />} />
@@ -63,6 +70,7 @@ export function App() {
       <Route path="/map" element={<Navigate to="/tourist/map" replace />} />
       <Route path="/poi/:poiId" element={<PoiPage />} />
       <Route path="/premium" element={<Navigate to="/tourist/premium" replace />} />
+      <Route path="/tour/shared/:shareToken" element={<SharedTourPage />} />
 
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
