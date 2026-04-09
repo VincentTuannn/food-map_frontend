@@ -1,99 +1,99 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 
-// [1] CẤU HÌNH MENU: Quản lý tập trung các mục điều hướng
+// Định nghĩa 10 Module chuẩn theo Backend
 const MENU_ITEMS = [
-  { path: '/admin', label: '📊 Tổng quan', end: true },
-  { path: '/admin/moderation', label: '📍 Duyệt địa điểm' },
-  { path: '/admin/users', label: '👥 Users & Merchants' },
-  { path: '/admin/config', label: '⚙️ Cấu hình hệ thống' },
-  { path: '/admin/finance', label: '💰 Đối soát dòng tiền' },
+  { path: 'dashboard', label: 'Tổng quan', icon: '📊' },
+  { path: 'users', label: 'Khách du lịch', icon: '👤' },
+  { path: 'merchants', label: 'Đối tác', icon: '🏪' },
+  { path: 'admins', label: 'Quản trị viên', icon: '👑' },
+  { path: 'pois', label: 'Duyệt địa điểm', icon: '📍' },
+  { path: 'reviews', label: 'Đánh giá', icon: '⭐' },
+  { path: 'tours', label: 'Tuyến đường', icon: '🗺️' },
+  { path: 'promotions', label: 'Khuyến mãi', icon: '🎁' },
+  { path: 'transactions', label: 'Dòng tiền', icon: '💰' },
+  { path: 'tracking', label: 'Nhật ký', icon: '🛡️' },
 ];
 
 export function AdminLayout() {
-  // [2] STYLE DYNAMICS: Hàm xử lý class hoạt động cho NavLink
-  const getNavClass = (isActive: boolean) => {
-    return `btn ${isActive ? 'btnPrimary' : 'btnGhost'}`;
-  };
+  const navigate = useNavigate();
+  // XÓA DÒNG CONST LOGOUT BỊ LỖI ĐI
 
-  const navItemStyle = {
-    width: '100%',
-    textAlign: 'left' as const,
-    justifyContent: 'flex-start',
-    textDecoration: 'none',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    border: 'none',
-    padding: '10px 16px',
-    fontWeight: 600,
+  const handleLogout = () => {
+    if (window.confirm('Bạn có chắc chắn muốn đăng xuất?')) {
+      // 1. Xóa dữ liệu đăng nhập
+      localStorage.removeItem('userToken'); 
+      localStorage.removeItem('userRole'); // Nếu bạn có lưu role
+      
+      // 2. Chuyển hướng
+      navigate('/login');
+      
+      // 3. Reload nhẹ để reset lại toàn bộ state của app (tùy chọn)
+      window.location.reload();
+    }
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', background: 'var(--bg)', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#0D0D14', color: '#fff' }}>
       
-      {/* HEADER: Thanh điều hướng trên cùng */}
-      <header className="rowBetween" style={{ 
-        height: '64px', 
-        background: 'var(--panel)', 
-        borderBottom: '1px solid var(--border)',
-        padding: '0 24px', 
-        zIndex: 10
+      {/* SIDEBAR (Bên trái) */}
+      <aside style={{
+        width: 260,
+        background: '#151521',
+        borderRight: '1px solid #222',
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'fixed',
+        height: '100vh'
       }}>
-        <div className="row" style={{ gap: 12 }}>
-          <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--brand)', letterSpacing: '0.5px' }}>
-            Vĩnh Khánh Tour Guide
-          </div>
-          <span className="pill" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}>
-            Admin Console
-          </span>
+        <div style={{ padding: '25px 20px', fontSize: 18, fontWeight: 900, color: '#9D4EDD', borderBottom: '1px solid #222' }}>
+          VĨNH KHÁNH ADMIN
         </div>
-        
-        {/* Vị trí dự phòng cho Avatar hoặc Nút Đăng xuất */}
-        <div className="btn btnGhost" style={{ fontSize: 14 }}>🚪 Đăng xuất</div>
-      </header>
 
-      {/* THÂN TRANG: Chia Sidebar và Content */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        
-        {/* SIDEBAR: Menu điều hướng bên trái */}
-        <aside style={{ 
-          width: '260px', 
-          background: 'var(--panel)', 
-          borderRight: '1px solid var(--border)',
-          padding: '24px 16px', 
-          display: 'flex', 
-          flexDirection: 'column', 
-          gap: '6px'
-        }}>
-          <div style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 12, paddingLeft: 8 }}>
-            Menu Quản Trị
-          </div>
+        <nav style={{ flex: 1, padding: '20px 12px', overflowY: 'auto' }}>
+          {MENU_ITEMS.map((item) => (
+            <NavLink
+              key={item.path}
+              to={`/admin/${item.path}`}
+              style={({ isActive }) => ({
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '12px 16px',
+                marginBottom: 4,
+                borderRadius: 8,
+                textDecoration: 'none',
+                fontSize: 14,
+                transition: '0.2s',
+                color: isActive ? '#fff' : '#A0A0B0',
+                background: isActive ? '#7B2CBF' : 'transparent',
+              })}
+            >
+              <span>{item.icon}</span>
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
 
-          <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {MENU_ITEMS.map((item) => (
-              <NavLink 
-                key={item.path}
-                to={item.path} 
-                end={item.end}
-                className={({ isActive }) => getNavClass(isActive)} 
-                style={navItemStyle}
-              >
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
+        <div style={{ padding: 20, borderTop: '1px solid #222' }}>
+          <button 
+            onClick={handleLogout}
+            style={{
+              width: '100%', padding: '10px', background: 'rgba(255, 77, 79, 0.1)',
+              color: '#ff4d4f', border: '1px solid rgba(255, 77, 79, 0.2)',
+              borderRadius: 8, cursor: 'pointer', fontWeight: 600
+            }}
+          >
+            🚪 Đăng xuất
+          </button>
+        </div>
+      </aside>
 
-          {/* Thông tin phiên bản ở cuối Sidebar */}
-          <div style={{ marginTop: 'auto', padding: '16px 8px', fontSize: 12, color: 'var(--muted)', borderTop: '1px solid var(--border)' }}>
-            v1.0.0-UI
-          </div>
-        </aside>
+      {/* MAIN CONTENT (Bên phải) */}
+      <main style={{ flex: 1, marginLeft: 260, padding: '30px', minHeight: '100vh' }}>
+        {/* Dòng này cực kỳ quan trọng: Đây là nơi 10 module sẽ hiển thị */}
+        <Outlet />
+      </main>
 
-        {/* MAIN CONTENT: Vùng hiển thị các trang con thông qua Outlet */}
-        <main style={{ flex: 1, padding: '32px', overflowY: 'auto', background: 'var(--bg)' }}>
-          <Outlet />
-        </main>
-      </div>
     </div>
   );
 }
