@@ -15,8 +15,11 @@ import { LoginPage } from './features/tourist/LoginPage'
 import { RegisterPage } from './features/tourist/RegisterPage'
 
 import { MerchantDashboard } from './features/merchant/MerchantDashboard'
+import { MerchantLoginPage } from './features/merchant/MerchantLoginPage'
+import { MerchantRegisterPage } from './features/merchant/MerchantRegisterPage'
 
 // --- ADMIN MODULES ---
+import { AdminLoginPage } from './features/admin/AdminLoginPage'
 import { AdminLayout } from './features/admin/AdminLayout'
 import { AdminDashboard } from './features/admin/AdminDashboard'
 import { AdminUsers } from './features/admin/AdminUsers'
@@ -47,11 +50,11 @@ function resolveHomeByRole(role: AuthRole) {
   return '/tourist/start'
 }
 
-function RoleRoute({ allowed }: { allowed: AuthRole[] }) {
+function RoleRoute({ allowed, fallback = "/login" }: { allowed: AuthRole[], fallback?: string }) {
   const token = useAppStore(s => s.userToken)
   const role = useAppStore(s => s.userRole)
-  if (!token) return <Navigate to="/login" replace />
-  if (!role) return <Navigate to="/login" replace />
+  if (!token) return <Navigate to={fallback} replace />
+  if (!role) return <Navigate to={fallback} replace />
   if (!allowed.includes(role)) return <Navigate to={resolveHomeByRole(role)} replace />
   return <Outlet />
 }
@@ -63,6 +66,11 @@ export function App() {
       <Route path="/" element={<Navigate to="/tourist/start" replace />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      
+      {/* SEPARATE AUTH ROUTES */}
+      <Route path="/admin/login" element={<AdminLoginPage />} />
+      <Route path="/merchant/login" element={<MerchantLoginPage />} />
+      <Route path="/merchant/register" element={<MerchantRegisterPage />} />
 
       {/* 2. TOURIST ROUTES */}
       <Route path="/tourist" element={<TouristAuthRoute />}>
@@ -77,12 +85,13 @@ export function App() {
 
       <Route path="/tour/shared/:shareToken" element={<SharedTourPage />} />
 
-      <Route path="/merchant" element={<RoleRoute allowed={['MERCHANT']} />}>
+      <Route path="/merchant" element={<RoleRoute allowed={['MERCHANT']} fallback="/merchant/login" />}>
         <Route index element={<MerchantDashboard />} />
         <Route path="*" element={<MerchantDashboard />} />
       </Route>
 
-      <Route path="/admin" element={<AdminLayout />}>
+      <Route path="/admin" element={<RoleRoute allowed={['ADMIN']} fallback="/admin/login" />}>
+        <Route element={<AdminLayout />}>
         <Route index element={<AdminDashboard />} />
         
         <Route path="dashboard" element={<AdminDashboard />} />
@@ -96,6 +105,7 @@ export function App() {
         <Route path="transactions" element={<AdminTransactions />} />
         <Route path="tracking" element={<AdminTracking />} />
 
+        </Route>
       </Route>
 
       {/* 5. CÁC ĐIỀU HƯỚNG CŨ (COMPATIBILITY) */}

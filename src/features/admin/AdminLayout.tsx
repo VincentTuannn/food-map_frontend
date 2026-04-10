@@ -28,7 +28,7 @@ export function AdminLayout() {
     if (window.confirm('Bạn có chắc chắn muốn đăng xuất?')) {
       localStorage.removeItem('userToken');
       localStorage.removeItem('userRole');
-      navigate('/login');
+      navigate('/admin/login');
       window.location.reload();
     }
   };

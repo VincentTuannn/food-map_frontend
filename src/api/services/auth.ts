@@ -23,3 +23,10 @@ export async function registerUser(email: string, phone: string, password: strin
     json: { email, phone, password },
   })
 }
+
+export async function registerMerchant(email: string, business_name: string, password: string): Promise<AuthResponse> {
+  return apiFetch<AuthResponse>('/auth/register/merchant', {
+    method: 'POST',
+    json: { email, business_name, password },
+  })
+}
