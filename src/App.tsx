@@ -1,5 +1,9 @@
 import { Navigate, Route, Routes, Outlet } from 'react-router-dom'
 import { useAppStore } from './shared/store/appStore'
+import type { AuthRole } from './api/services/identity'
+
+// --- TOURIST MODULES ---
+
 import { StartPage } from './features/tourist/StartPage'
 import { MapPage } from './features/tourist/MapPage'
 import { PoiPage } from './features/tourist/PoiPage'
@@ -9,13 +13,10 @@ import { MyTourDetailPage } from './features/tourist/MyTourDetailPage'
 import { SharedTourPage } from './features/tourist/SharedTourPage'
 import { LoginPage } from './features/tourist/LoginPage'
 import { RegisterPage } from './features/tourist/RegisterPage'
-import { NotFoundPage } from './shared/ui/NotFoundPage'
-import { MerchantLayout } from './features/merchant/MerchantLayout'
-import { MerchantHomePage } from './features/merchant/MerchantHomePage'
-import { MerchantPoisPage } from './features/merchant/MerchantPoisPage'
-import { MerchantPromotionsPage } from './features/merchant/MerchantPromotionsPage'
-import { MerchantAnalyticsPage } from './features/merchant/MerchantAnalyticsPage'
-import { MerchantBillingPage } from './features/merchant/MerchantBillingPage'
+
+import { MerchantDashboard } from './features/merchant/MerchantDashboard'
+
+// --- ADMIN MODULES ---
 import { AdminLayout } from './features/admin/AdminLayout'
 import { AdminDashboard } from './features/admin/AdminDashboard'
 import { AdminUsers } from './features/admin/AdminUsers'
@@ -73,20 +74,28 @@ export function App() {
         <Route path="tours/:tourId" element={<MyTourDetailPage />} />
       </Route>
 
-      <Route path="/merchant" element={<MerchantLayout />}>
-        <Route index element={<MerchantHomePage />} />
-        <Route path="pois" element={<MerchantPoisPage />} />
-        <Route path="promotions" element={<MerchantPromotionsPage />} />
-        <Route path="analytics" element={<MerchantAnalyticsPage />} />
-        <Route path="billing" element={<MerchantBillingPage />} />
+
+      <Route path="/tour/shared/:shareToken" element={<SharedTourPage />} />
+
+      <Route path="/merchant" element={<RoleRoute allowed={['MERCHANT']} />}>
+        <Route index element={<MerchantDashboard />} />
+        <Route path="*" element={<MerchantDashboard />} />
       </Route>
 
       <Route path="/admin" element={<AdminLayout />}>
-        <Route index element={<AdminHomePage />} />
-        <Route path="moderation" element={<AdminModerationPage />} />
-        <Route path="users" element={<AdminUsersPage />} />
-        <Route path="config" element={<AdminConfigPage />} />
-        <Route path="finance" element={<AdminFinancePage />} />
+        <Route index element={<AdminDashboard />} />
+        
+        <Route path="dashboard" element={<AdminDashboard />} />
+        <Route path="users" element={<AdminUsers />} />
+        <Route path="merchants" element={<AdminMerchants />} />
+        <Route path="accounts" element={<AdminAccounts />} />
+        <Route path="pois" element={<AdminPois />} />
+        <Route path="reviews" element={<AdminReviews />} />
+        <Route path="tours" element={<AdminTours />} />
+        <Route path="promotions" element={<AdminPromotions />} />
+        <Route path="transactions" element={<AdminTransactions />} />
+        <Route path="tracking" element={<AdminTracking />} />
+
       </Route>
 
       {/* 5. CÁC ĐIỀU HƯỚNG CŨ (COMPATIBILITY) */}
@@ -94,6 +103,7 @@ export function App() {
       <Route path="/map" element={<Navigate to="/tourist/map" replace />} />
       <Route path="/poi/:poiId" element={<PoiPage />} />
       <Route path="/premium" element={<Navigate to="/tourist/premium" replace />} />
+      <Route path="/tour/shared/:shareToken" element={<SharedTourPage />} />
 
       {/* 6. NOT FOUND */}
       <Route path="*" element={<NotFoundPage />} />
