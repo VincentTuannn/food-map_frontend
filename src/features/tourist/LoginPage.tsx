@@ -38,20 +38,27 @@ export function LoginPage() {
     setErrorMsg('')
     setLoading(true)
     try {
-      const res = await loginUser(email, password)
+      const res: any = await loginUser(email, password);
       if (res.success && res.data?.token) {
-        const roleFromUser = res.data.user?.role
-        const role = res.data.role ?? roleFromUser
-        const normalizedRole = res.data.merchant ? 'MERCHANT' : normalizeRole(role)
-        setUserToken(res.data.token)
-        setUserRole(normalizedRole)
-        showToast({ title: 'Đăng nhập thành công!' })
-        nav(resolveHome(normalizedRole))
+        // Lấy role ưu tiên merchant, sau đó đến role trả về
+        const roleFromUser = res.data.user?.role;
+        const role = res.data.role ?? roleFromUser;
+        const normalizedRole = res.data.merchant ? 'MERCHANT' : normalizeRole(role);
+        const token = res.data.token;
+
+        // Lưu vào localStorage và store
+        localStorage.setItem('userToken', token);
+        localStorage.setItem('userRole', normalizedRole);
+        setUserToken(token);
+        setUserRole(normalizedRole);
+
+        showToast({ title: 'Đăng nhập thành công!' });
+        nav(resolveHome(normalizedRole));
       } else {
-        setErrorMsg('Đăng nhập thất bại: ' + JSON.stringify(res))
+        setErrorMsg('Đăng nhập thất bại: ' + (res.message || 'Không có token'));
       }
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Lỗi kết nối đến máy chủ')
+    } catch (error) {
+      setErrorMsg('Lỗi đăng nhập: ' + (error instanceof Error ? error.message : 'Vui lòng thử lại'));
     } finally {
       setLoading(false)
     }
