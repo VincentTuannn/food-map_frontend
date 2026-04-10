@@ -23,16 +23,32 @@ export function LoginPage() {
     setErrorMsg('')
     setLoading(true)
     try {
-      const res = await loginUser(email, password)
+      const res: any = await loginUser(email, password);
+
       if (res.success && res.data?.token) {
-        setUserToken(res.data.token)
-        showToast({ title: 'Đăng nhập thành công!' })
-        nav('/tourist/start') // Or map
+        const token = res.data.token;
+        
+        const role = res.data?.user?.role 
+                  || res.data?.role 
+                  || res?.user?.role 
+                  || res?.role 
+                  || 'user'; 
+
+        localStorage.setItem('userToken', token);
+        localStorage.setItem('userRole', role);
+        setUserToken(token);
+        showToast({ title: 'Đăng nhập thành công!' });
+
+        if (String(role).toLowerCase() === 'admin') {
+          nav('/admin/dashboard');
+        } else {
+          nav('/tourist/start');
+        }
       } else {
-        setErrorMsg('Đăng nhập thất bại: ' + JSON.stringify(res))
+        setErrorMsg('Đăng nhập thất bại: ' + (res.message || 'Không có token'));
       }
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Lỗi kết nối đến máy chủ')
+    } catch (error) {
+      setErrorMsg('Lỗi đăng nhập: ' + (error instanceof Error ? error.message : 'Vui lòng thử lại'));
     } finally {
       setLoading(false)
     }

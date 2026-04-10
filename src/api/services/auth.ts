@@ -9,15 +9,15 @@ export type AuthResponse = {
 }
 
 export async function loginUser(email: string, password: string): Promise<AuthResponse> {
-  return apiFetch<AuthResponse>('/api/v1/auth/login', {
+  return apiFetch<AuthResponse>('/auth/login', {
     method: 'POST',
     json: { email, password },
   })
 }
 
-export async function registerUser(email: string, phoneNumber: string, password: string): Promise<AuthResponse> {
-  return apiFetch<AuthResponse>('/api/v1/auth/register/user', {
+export async function registerUser(email: string, password: string): Promise<AuthResponse> {
+  return apiFetch<AuthResponse>('/auth/register/user', {
     method: 'POST',
-    json: { email, phoneNumber, password },
+    json: { email, password },
   })
 }
