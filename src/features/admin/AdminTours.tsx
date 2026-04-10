@@ -88,7 +88,7 @@ export function AdminTours() {
       <div className="card cardPad" style={{ marginBottom: 20 }}>
         <div className="rowBetween">
           <div>
-            <h2 style={{ margin: 0, color: '#fff', fontSize: 24, fontWeight: 800 }}>🗺️ Tuyến đường du lịch</h2>
+            <h2 style={{ margin: 0, color: '#8B7355', fontSize: 24, fontWeight: 800 }}>🗺️ Tuyến đường du lịch</h2>
             <p style={{ color: '#888', marginTop: 5, fontSize: 14 }}>Tạo và quản lý các hành động tham quan kết hợp nhiều địa điểm.</p>
           </div>
           <button className="btn btnPrimary" onClick={() => setIsModalOpen(true)}>

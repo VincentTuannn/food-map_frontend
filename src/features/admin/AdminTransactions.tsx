@@ -51,7 +51,7 @@ export function AdminTransactions() {
     <div style={{ animation: 'fadeIn 0.3s' }}>
       {/* HEADER & FILTER */}
       <div className="card cardPad" style={{ marginBottom: 20 }}>
-        <h2 style={{ margin: '0 0 20px 0', color: '#fff', fontSize: 24, fontWeight: 800 }}>💰 Đối soát dòng tiền</h2>
+        <h2 style={{ margin: '0 0 20px 0', color: '#8B7355', fontSize: 24, fontWeight: 800 }}>💰 Đối soát dòng tiền</h2>
         
         <div style={{ display: 'flex', gap: 15, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 200 }}>

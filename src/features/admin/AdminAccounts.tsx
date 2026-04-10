@@ -75,7 +75,7 @@ export function AdminAccounts() {
       <div className="card cardPad" style={{ marginBottom: 20 }}>
         <div className="rowBetween">
           <div>
-            <h2 style={{ margin: 0, color: '#fff', fontSize: 24, fontWeight: 800 }}>🛡️ Quyền lực đặc biệt</h2>
+            <h2 style={{ margin: 0, color: '#8B7355', fontSize: 24, fontWeight: 800 }}>🛡️ Quyền lực đặc biệt</h2>
             <p style={{ color: '#888', marginTop: 5, fontSize: 14 }}>Tạo và quản lý các tài khoản Quản trị viên hệ thống.</p>
           </div>
           <button className="btn btnPrimary" onClick={() => setIsModalOpen(true)}>
@@ -86,7 +86,7 @@ export function AdminAccounts() {
 
       {/* DANH SÁCH ADMIN */}
       <div className="card cardPad">
-        <table style={{ width: '100%', borderCollapse: 'collapse', color: '#fff', textAlign: 'left' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', color: '#8B7355', textAlign: 'left' }}>
           <thead>
             <tr style={{ color: '#666', borderBottom: '1px solid #333' }}>
               <th style={{ padding: '15px 10px' }}>STT</th>

@@ -51,7 +51,7 @@ export function AdminPromotions() {
       <div className="card cardPad" style={{ marginBottom: 20 }}>
         <div className="rowBetween">
           <div>
-            <h2 style={{ margin: 0, color: '#fff', fontSize: 24, fontWeight: 800 }}>🎁 Quản lý Khuyến mãi</h2>
+            <h2 style={{ margin: 0, color: '#8B7355', fontSize: 24, fontWeight: 800 }}>🎁 Quản lý Khuyến mãi</h2>
             <p style={{ color: '#888', marginTop: 5, fontSize: 14 }}>
               Theo dõi và kiểm soát các mã giảm giá từ Đối tác (Merchant) trên toàn hệ thống.
             </p>
