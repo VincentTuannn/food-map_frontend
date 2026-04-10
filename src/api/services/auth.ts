@@ -4,7 +4,9 @@ export type AuthResponse = {
   success: boolean
   data: {
     token: string
-    user: any
+    user?: any
+    merchant?: any
+    role?: string
   }
 }
 

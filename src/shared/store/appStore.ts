@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { AuthRole } from '../../api/services/identity'
 
 export type Language = 'vi' | 'en' | 'ja' | 'zh' | 'ko'
 export type ThemeMode = 'dark' | 'light'
@@ -14,6 +15,9 @@ export type AppState = {
 
   userToken?: string
   setUserToken: (t?: string) => void
+
+  userRole?: AuthRole
+  setUserRole: (role?: AuthRole) => void
 
 
   theme: ThemeMode
@@ -32,18 +36,18 @@ export type AppState = {
   showToast: (t?: { title: string; message?: string }) => void
 }
 
-function loadPrefs(): { language?: Language; theme?: ThemeMode; userToken?: string } {
+function loadPrefs(): { language?: Language; theme?: ThemeMode; userToken?: string; userRole?: AuthRole } {
   try {
     const raw = localStorage.getItem('food-map:prefs')
     if (!raw) return {}
-    const j = JSON.parse(raw) as { language?: Language; theme?: ThemeMode; userToken?: string }
+    const j = JSON.parse(raw) as { language?: Language; theme?: ThemeMode; userToken?: string; userRole?: AuthRole }
     return j ?? {}
   } catch {
     return {}
   }
 }
 
-function savePrefs(prefs: { language: Language; theme: ThemeMode; userToken?: string }) {
+function savePrefs(prefs: { language: Language; theme: ThemeMode; userToken?: string; userRole?: AuthRole }) {
   try {
     localStorage.setItem('food-map:prefs', JSON.stringify(prefs))
   } catch {
@@ -69,8 +73,15 @@ export const useAppStore = create<AppState>((set) => ({
   userToken: loadPrefs().userToken,
   setUserToken: (userToken) =>
     set((s) => {
-      savePrefs({ language: s.language, theme: s.theme, userToken })
+      savePrefs({ language: s.language, theme: s.theme, userToken, userRole: s.userRole })
       return { userToken }
+    }),
+
+  userRole: loadPrefs().userRole,
+  setUserRole: (userRole) =>
+    set((s) => {
+      savePrefs({ language: s.language, theme: s.theme, userToken: s.userToken, userRole })
+      return { userRole }
     }),
 
   tourCode: undefined,

@@ -1,21 +1,20 @@
 import { Navigate, Route, Routes, Outlet } from 'react-router-dom'
 import { useAppStore } from './shared/store/appStore'
+import type { AuthRole } from './api/services/identity'
 
 // --- TOURIST MODULES ---
+
 import { StartPage } from './features/tourist/StartPage'
 import { MapPage } from './features/tourist/MapPage'
 import { PoiPage } from './features/tourist/PoiPage'
 import { PremiumPage } from './features/tourist/PremiumPage'
+import { MyToursPage } from './features/tourist/MyToursPage'
+import { MyTourDetailPage } from './features/tourist/MyTourDetailPage'
+import { SharedTourPage } from './features/tourist/SharedTourPage'
 import { LoginPage } from './features/tourist/LoginPage'
 import { RegisterPage } from './features/tourist/RegisterPage'
 
-// --- MERCHANT MODULES ---
-import { MerchantLayout } from './features/merchant/MerchantLayout'
-import { MerchantHomePage } from './features/merchant/MerchantHomePage'
-import { MerchantPoisPage } from './features/merchant/MerchantPoisPage'
-import { MerchantPromotionsPage } from './features/merchant/MerchantPromotionsPage'
-import { MerchantAnalyticsPage } from './features/merchant/MerchantAnalyticsPage'
-import { MerchantBillingPage } from './features/merchant/MerchantBillingPage'
+import { MerchantDashboard } from './features/merchant/MerchantDashboard'
 
 // --- ADMIN MODULES ---
 import { AdminLayout } from './features/admin/AdminLayout'
@@ -36,7 +35,24 @@ import { NotFoundPage } from './shared/ui/NotFoundPage'
 // Kiểm tra đăng nhập Tourist
 function TouristAuthRoute() {
   const token = useAppStore(s => s.userToken)
+  const role = useAppStore(s => s.userRole)
   if (!token) return <Navigate to="/login" replace />
+  if (role && role !== 'USER') return <Navigate to={resolveHomeByRole(role)} replace />
+  return <Outlet />
+}
+
+function resolveHomeByRole(role: AuthRole) {
+  if (role === 'MERCHANT') return '/merchant'
+  if (role === 'ADMIN') return '/admin'
+  return '/tourist/start'
+}
+
+function RoleRoute({ allowed }: { allowed: AuthRole[] }) {
+  const token = useAppStore(s => s.userToken)
+  const role = useAppStore(s => s.userRole)
+  if (!token) return <Navigate to="/login" replace />
+  if (!role) return <Navigate to="/login" replace />
+  if (!allowed.includes(role)) return <Navigate to={resolveHomeByRole(role)} replace />
   return <Outlet />
 }
 
@@ -54,15 +70,16 @@ export function App() {
         <Route path="map" element={<MapPage />} />
         <Route path="poi/:poiId" element={<PoiPage />} />
         <Route path="premium" element={<PremiumPage />} />
+        <Route path="tours" element={<MyToursPage />} />
+        <Route path="tours/:tourId" element={<MyTourDetailPage />} />
       </Route>
 
-      {/* 3. MERCHANT ROUTES */}
-      <Route path="/merchant" element={<MerchantLayout />}>
-        <Route index element={<MerchantHomePage />} />
-        <Route path="pois" element={<MerchantPoisPage />} />
-        <Route path="promotions" element={<MerchantPromotionsPage />} />
-        <Route path="analytics" element={<MerchantAnalyticsPage />} />
-        <Route path="billing" element={<MerchantBillingPage />} />
+
+      <Route path="/tour/shared/:shareToken" element={<SharedTourPage />} />
+
+      <Route path="/merchant" element={<RoleRoute allowed={['MERCHANT']} />}>
+        <Route index element={<MerchantDashboard />} />
+        <Route path="*" element={<MerchantDashboard />} />
       </Route>
 
       {/* 4. ADMIN ROUTES */}
@@ -79,12 +96,15 @@ export function App() {
         <Route path="promotions" element={<AdminPromotions />} />
         <Route path="transactions" element={<AdminTransactions />} />
         <Route path="tracking" element={<AdminTracking />} />
+
       </Route>
 
       {/* 5. CÁC ĐIỀU HƯỚNG CŨ (COMPATIBILITY) */}
       <Route path="/start" element={<Navigate to="/tourist/start" replace />} />
       <Route path="/map" element={<Navigate to="/tourist/map" replace />} />
       <Route path="/poi/:poiId" element={<PoiPage />} />
+      <Route path="/premium" element={<Navigate to="/tourist/premium" replace />} />
+      <Route path="/tour/shared/:shareToken" element={<SharedTourPage />} />
 
       {/* 6. NOT FOUND */}
       <Route path="*" element={<NotFoundPage />} />

@@ -1,3 +1,22 @@
+export type HeatmapPoint = {
+  poi_id: string
+  lat: number
+  lng: number
+  count: number
+}
+
+export type MerchantAnalytics = {
+  total_poi: number
+  total_views: number
+  total_conversions: number
+  heatmap: HeatmapPoint[]
+}
+
+export async function getMerchantAnalytics(): Promise<MerchantAnalytics> {
+  // API trả về { success, data }
+  const res = await apiFetch<{ success: boolean; data: MerchantAnalytics }>('/merchants/analytics/stats')
+  return res.data
+}
 import { apiFetch } from '../http'
 
 export type TrackEvent = {

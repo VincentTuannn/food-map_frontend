@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { distanceMeters } from "../../shared/lib/geo";
 import { getNearbyPois } from "../../api/services/location";
 import { useAppStore } from "../../shared/store/appStore";
@@ -9,12 +10,19 @@ import type {
   DirectionsRoute,
 } from "../../api/services/directions";
 import { getDirections } from "../../api/services/directions";
-import { PoiDetails } from "./PoiPage";
 import { getCachedPoiContent, getPoiContent } from "../../api/services/content";
 import { getPoiById, type ApiPoi } from "../../api/services/poi";
+import { getMyTour, type UserTourPoi } from "../../api/services/userTours";
+import { getTourPois, type TourPoi } from "../../api/services/tours";
 import type { Poi } from "../../shared/domain/poi";
+import { logTrackingEvent } from "../../api/services/trackingLogs";
+import { DirectionsPanel } from "./components/DirectionsPanel";
+import { DirectionsTopbar } from "./components/DirectionsTopbar";
+import { FloatingActions } from "./components/FloatingActions";
+import { PoiDetailsModal } from "./components/PoiDetailsModal";
+import { PoiListSheet } from "./components/PoiListSheet";
 
-import MapView, { Marker, Popup } from "react-map-gl";
+import MapView, { Layer, Marker, Popup, Source } from "react-map-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
@@ -40,6 +48,8 @@ export function MapPage() {
   const setPosition = useAppStore((s) => s.setPosition);
   const showToast = useAppStore((s) => s.showToast);
   const t = useT();
+  const location = useLocation();
+  const nav = useNavigate();
 
   const [ttsOn, setTtsOn] = useState(true);
   const [profile, setProfile] = useState<DirectionsProfile>("walking");
@@ -62,6 +72,28 @@ export function MapPage() {
   const [selectedMurfGender, setSelectedMurfGender] = useState<"female" | "male">("female");
   const [ttsRate, setTtsRate] = useState(1);
   const [isTtsLoading, setIsTtsLoading] = useState(false);
+  const [tourPois, setTourPois] = useState<Array<TourPoi & UserTourPoi & { poiId?: string }>>([]);
+  const [isTourLoading, setIsTourLoading] = useState(false);
+  const [tourQuery, setTourQuery] = useState("");
+  const [tourOnly, setTourOnly] = useState(false);
+  const [tourMeta, setTourMeta] = useState<{ id: string; scope: "mine" | "saved"; name?: string } | null>(null);
+  const [multiLegs, setMultiLegs] = useState<DirectionsRoute[]>([]);
+  const [multiLegIndex, setMultiLegIndex] = useState(0);
+  const [multiRouteLabel, setMultiRouteLabel] = useState<string | null>(null);
+  const [selectedStopIds, setSelectedStopIds] = useState<Set<string>>(new Set());
+  const [showAddStop, setShowAddStop] = useState(false);
+  const [isMultiRouting, setIsMultiRouting] = useState(false);
+  const [isRouting, setIsRouting] = useState(false);
+  const [routeTargetLabel, setRouteTargetLabel] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [sheetExpanded, setSheetExpanded] = useState(false);
+  const [isTopbarCollapsed, setIsTopbarCollapsed] = useState(false);
+  const [showAllSteps, setShowAllSteps] = useState(false);
+  const [dirTab, setDirTab] = useState<"overview" | "steps">("overview");
+  const autoNavRef = useRef(false);
+  const tourPoiNameRef = useRef<Set<string>>(new Set());
+  const [hideBottomNav, setHideBottomNav] = useState(false);
+  const bottomNavTouchedRef = useRef(false);
 
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const seenTtsKeysRef = useRef<Set<string>>(new Set());
@@ -199,6 +231,7 @@ export function MapPage() {
     setViewingPoi(null);
     setViewingPoiId(poi.id);
     setIsViewingPoiLoading(true);
+    logTrackingEvent({ event: "poi_open", poiId: poi.id }).catch(() => undefined);
     getPoiById(poi.id)
       .then((res) => {
         if (res?.data) {
@@ -211,6 +244,122 @@ export function MapPage() {
       .finally(() => setIsViewingPoiLoading(false));
   };
 
+  const normalizeTourPoi = (poi: TourPoi | UserTourPoi) => {
+    const rawPoi = (poi as any).poi;
+    const poiId = (poi as UserTourPoi).poi_id ?? rawPoi?.id ?? (poi as TourPoi).id;
+    const order = (poi as UserTourPoi).order_index ?? (poi as TourPoi).order;
+    return {
+      ...poi,
+      poiId,
+      order,
+      id: poiId ?? (poi as UserTourPoi).id ?? (poi as TourPoi).id,
+      name: (poi as UserTourPoi).name ?? rawPoi?.name ?? (poi as TourPoi).name,
+      lat: (poi as UserTourPoi).lat ?? (poi as TourPoi).lat,
+      lng: (poi as UserTourPoi).lng ?? (poi as TourPoi).lng,
+    };
+  };
+
+  const resolveTourPoiCoords = async (poi: { id: string; poiId?: string; lat?: number; lng?: number; name?: string }) => {
+    if (poi.lat && poi.lng && poi.name) return poi;
+    const lookupId = poi.poiId ?? poi.id;
+    const res = await getPoiById(lookupId);
+    const apiPoi = res?.data;
+    if (!apiPoi) return poi;
+    const lat = apiPoi.lat ?? apiPoi.latitude ?? apiPoi.location?.coordinates?.[1] ?? 0;
+    const lng = apiPoi.lng ?? apiPoi.longitude ?? apiPoi.location?.coordinates?.[0] ?? 0;
+    return {
+      ...poi,
+      name: apiPoi.name ?? poi.name,
+      lat: poi.lat ?? lat,
+      lng: poi.lng ?? lng,
+    };
+  };
+
+  const handleDirections = async (poi: any) => {
+    if (!position) {
+      showToast({ title: t("tourist.map.noGps") });
+      return;
+    }
+    if (!poi?.lat || !poi?.lng) return;
+
+    try {
+      const res = await getDirections({
+        from: { lat: position.lat, lng: position.lng },
+        to: { lat: poi.lat, lng: poi.lng },
+        profile,
+      });
+      setRoute(res.route);
+      setMultiLegs([]);
+      setMultiLegIndex(0);
+      setMultiRouteLabel(null);
+      setRouteTargetLabel(poi.name ?? poi.id ?? "Điểm đến");
+      setShowDirections(true);
+      setDirTab("overview");
+      if (isMobile) setSheetExpanded(true);
+      logTrackingEvent({ event: "route_request", poiId: poi.id, meta: { profile } }).catch(() => undefined);
+    } catch {
+      showToast({ title: "Không tìm thấy đường đi" });
+    }
+  };
+
+  const tourPoiKey = (poi: { poiId?: string; id?: string }) => poi.poiId ?? poi.id ?? "";
+
+  const resolveTourPoiList = async (list: Array<TourPoi & UserTourPoi & { poiId?: string }>) => {
+    const resolved: Array<{ id: string; name?: string; lat?: number; lng?: number }> = [];
+    for (const poi of list) {
+      const key = tourPoiKey(poi);
+      if (!key) continue;
+      const next = await resolveTourPoiCoords(poi);
+      if (typeof next.lat === "number" && typeof next.lng === "number") {
+        resolved.push({ id: key, name: next.name, lat: next.lat, lng: next.lng });
+      }
+    }
+    return resolved;
+  };
+
+  const startMultiRoute = async (
+    list: Array<TourPoi & UserTourPoi & { poiId?: string }>,
+    label: string,
+  ) => {
+    if (!position) {
+      showToast({ title: t("tourist.map.noGps") });
+      return;
+    }
+    setIsMultiRouting(true);
+    try {
+      const resolved = await resolveTourPoiList(list);
+      if (resolved.length === 0) {
+        showToast({ title: "Không tìm thấy tọa độ POI" });
+        return;
+      }
+      if (resolved.length === 1) {
+        handleDirections(resolved[0]);
+        return;
+      }
+
+      const legs: DirectionsRoute[] = [];
+      let from = { lat: position.lat, lng: position.lng };
+      for (const poi of resolved) {
+        const res = await getDirections({ from, to: { lat: poi.lat!, lng: poi.lng! }, profile });
+        legs.push(res.route);
+        from = { lat: poi.lat!, lng: poi.lng! };
+      }
+
+      setMultiLegs(legs);
+      setMultiLegIndex(0);
+      setMultiRouteLabel(label);
+      setRoute(legs[0]);
+      setRouteTargetLabel(label);
+      setShowDirections(true);
+      setDirTab("overview");
+      if (isMobile) setSheetExpanded(true);
+    } catch {
+      showToast({ title: "Không thể tạo lộ trình nhiều điểm" });
+    } finally {
+      setIsMultiRouting(false);
+    }
+  };
+
   useEffect(() => {
     const loadVoices = () => {
       const v = window.speechSynthesis.getVoices();
@@ -221,6 +370,62 @@ export function MapPage() {
       window.speechSynthesis.onvoiceschanged = loadVoices;
     }
   }, []);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth <= 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  useEffect(() => {
+    if (!showDirections) {
+      setIsTopbarCollapsed(false);
+    }
+  }, [showDirections]);
+
+  useEffect(() => {
+    setShowAllSteps(false);
+  }, [route?.geometry]);
+
+  useEffect(() => {
+    if (!showDirections) {
+      setDirTab("overview");
+    }
+  }, [showDirections]);
+
+  useEffect(() => {
+    if (!showDirections) {
+      setSelectedStopIds(new Set());
+    }
+  }, [showDirections]);
+
+  useEffect(() => {
+    if (showDirections) {
+      if (!bottomNavTouchedRef.current) setHideBottomNav(true);
+    } else {
+      setHideBottomNav(false);
+      bottomNavTouchedRef.current = false;
+    }
+  }, [showDirections]);
+
+  useEffect(() => {
+    if (tourPois.length === 0) return;
+    tourPois.forEach((poi) => {
+      const key = tourPoiKey(poi);
+      if (!key || (poi.name && poi.name.trim()) || tourPoiNameRef.current.has(key)) return;
+      tourPoiNameRef.current.add(key);
+      getPoiById(key)
+        .then((res) => {
+          const apiPoi = res?.data;
+          if (!apiPoi?.name) return;
+          setTourPois((prev) =>
+            prev.map((item) => (tourPoiKey(item) === key ? { ...item, name: apiPoi.name } : item))
+          );
+        })
+        .catch(() => undefined);
+    });
+  }, [tourPois]);
 
   useEffect(() => {
     if (!("geolocation" in navigator)) return;
@@ -284,13 +489,51 @@ export function MapPage() {
         nearbyCacheRef.current.set(cacheKey, { ts: Date.now(), items: res.items });
         setApiPois(res.items);
       })
-      .catch(() => showToast({ title: "Khong tai duoc POI" }))
+      .catch(() => showToast({ title: "Không tải được POI" }))
       .finally(() => {
         inFlightNearbyRef.current = null;
       });
 
     inFlightNearbyRef.current = req.then(() => undefined);
   }, [position, radiusMeters, showToast]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tourId = params.get("tourId");
+    const tourScope = (params.get("tourScope") ?? "saved") as "mine" | "saved";
+    const tourName = params.get("tourName") ?? undefined;
+
+    if (!tourId) {
+      setTourMeta(null);
+      setTourPois([]);
+      return;
+    }
+
+    setTourMeta({ id: tourId, scope: tourScope, name: tourName });
+    setIsTourLoading(true);
+
+    const loader = tourScope === "mine"
+      ? getMyTour(tourId).then((tour) => (tour?.TourPois ?? []) as UserTourPoi[])
+      : getTourPois(tourId);
+
+    loader
+      .then((items) => {
+        const normalized = (items ?? []).map((item) => normalizeTourPoi(item));
+        normalized.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        setTourPois(normalized);
+        setSelectedStopIds(new Set());
+      })
+      .catch(() => setTourPois([]))
+      .finally(() => setIsTourLoading(false));
+  }, [location.search]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const shouldAutoNav = params.get("nav") === "true";
+    if (!shouldAutoNav || autoNavRef.current || !position || tourPois.length === 0) return;
+    autoNavRef.current = true;
+    startMultiRoute(tourPois, tourMeta?.name ?? "Toàn bộ tour");
+  }, [location.search, position, tourPois, tourMeta]);
 
   const poisWithDistance = useMemo(() => {
     if (!position) return [];
@@ -307,6 +550,24 @@ export function MapPage() {
       .sort((a, b) => (a.d ?? Number.POSITIVE_INFINITY) - (b.d ?? Number.POSITIVE_INFINITY));
   }, [position, apiPois]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const toId = params.get('to');
+    if (!toId || !position) return;
+    const targetNearby = poisWithDistance.find((x) => x.p?.id === toId)?.p;
+    const targetTour = tourPois.find((p) => p.id === toId || p.poiId === toId);
+    if (targetNearby) {
+      handleDirections(targetNearby);
+    } else if (targetTour) {
+      resolveTourPoiCoords(targetTour).then((resolved) => {
+        if (resolved.lat && resolved.lng) handleDirections(resolved);
+      });
+    } else {
+      return;
+    }
+    nav('/tourist/map', { replace: true });
+  }, [location.search, poisWithDistance, position, nav, tourPois]);
+
   const filteredPois = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return poisWithDistance.filter(({ p }) => {
@@ -316,6 +577,63 @@ export function MapPage() {
       return (p.name ?? '').toLowerCase().includes(q);
     });
   }, [poisWithDistance, searchQuery, categoryFilter]);
+
+  const filteredTourPois = useMemo(() => {
+    const q = tourQuery.trim().toLowerCase();
+    return tourPois.filter((poi) => {
+      if (!q) return true;
+      const name = (poi.name ?? "").toLowerCase();
+      return name.includes(q) || (poi.poiId ?? poi.id).toLowerCase().includes(q);
+    });
+  }, [tourPois, tourQuery]);
+
+  const addStopCandidates = useMemo(() => {
+    const q = tourQuery.trim().toLowerCase();
+    if (tourPois.length > 0) {
+      return filteredTourPois.map((poi) => ({
+        id: tourPoiKey(poi),
+        name: poi.name ?? "",
+        lat: poi.lat,
+        lng: poi.lng,
+      }));
+    }
+    return filteredPois
+      .filter(({ p }) => (!q ? true : (p.name ?? "").toLowerCase().includes(q)))
+      .map(({ p }) => ({
+        id: p.id,
+        name: p.name ?? "",
+        lat: p.lat,
+        lng: p.lng,
+      }));
+  }, [tourPois.length, filteredTourPois, filteredPois, tourQuery]);
+
+  const selectedStops = useMemo(() => {
+    if (selectedStopIds.size === 0) return [];
+    return addStopCandidates.filter((poi) => selectedStopIds.has(poi.id));
+  }, [addStopCandidates, selectedStopIds]);
+
+  const tourMarkerPois = useMemo(() => {
+    return filteredTourPois
+      .filter((poi) => typeof poi.lat === 'number' && typeof poi.lng === 'number')
+      .map((poi) => ({
+        p: {
+          id: poi.poiId ?? poi.id,
+          name: poi.name,
+          lat: poi.lat,
+          lng: poi.lng,
+        },
+        d: undefined,
+      }));
+  }, [filteredTourPois]);
+
+  const showDirectionsOverlay = Boolean(showDirections && (route || isRouting));
+
+  const toggleBottomNav = () => {
+    bottomNavTouchedRef.current = true;
+    setHideBottomNav((v) => !v);
+  };
+
+
 
   const speechLang =
     language === "vi"
@@ -353,6 +671,18 @@ export function MapPage() {
 
   const speechLocaleOptions = ["vi-VN", "en-US", "ja-JP", "ko-KR", "zh-CN"];
 
+  const routeGeoJson = useMemo(() => {
+    if (!route?.geometry || route.geometry.length === 0) return null;
+    return {
+      type: "Feature",
+      geometry: {
+        type: "LineString",
+        coordinates: route.geometry,
+      },
+      properties: {},
+    } as const;
+  }, [route]);
+
   useEffect(() => {
     if (!position) return;
     const nearby = filteredPois.find(
@@ -368,13 +698,17 @@ export function MapPage() {
       message: msg,
     });
 
+    logTrackingEvent({ event: "poi_nearby", poiId: nearby.p.id, meta: { distance: nearby.d } }).catch(
+      () => undefined,
+    );
+
     if (ttsOn) {
       playTTS(nearby.p, msg, speechLang, selectedSpeechLocale);
     }
   }, [language, filteredPois, position, radiusMeters, showToast, ttsOn, speechLang, selectedSpeechLocale]);
 
   return (
-    <AppShell>
+    <AppShell showBottomNav={!hideBottomNav}>
       {/* 1. LAYER MAP (FIXED TO BACKGROUND) */}
       <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", zIndex: 0 }}>
         <MapView
@@ -393,9 +727,22 @@ export function MapPage() {
             setIsViewingPoiLoading(false);
           }}
         >
+          {routeGeoJson && (
+            <Source id="route" type="geojson" data={routeGeoJson}>
+              <Layer
+                id="route-line"
+                type="line"
+                paint={{
+                  "line-color": theme === 'dark' ? "#fb7185" : "#f43f5e",
+                  "line-width": 5,
+                  "line-opacity": 0.9,
+                }}
+              />
+            </Source>
+          )}
           {position && <Marker longitude={position.lng} latitude={position.lat} color="#3b82f6" />}
 
-          {filteredPois.map(({ p: poi }) => (
+          {(tourOnly && tourMarkerPois.length ? tourMarkerPois : filteredPois).map(({ p: poi }) => (
             <Marker
               key={poi.id}
               longitude={poi.lng}
@@ -419,43 +766,37 @@ export function MapPage() {
               maxWidth="260px"
               style={{ zIndex: 10 }}
             >
-              <div style={{ padding: "4px", width: "100%" }}>
+              <div className="poiPopup">
                 {(selectedPoi.imageUrl || selectedPoi.image_url) && (
-                  <img
-                    src={selectedPoi.imageUrl || selectedPoi.image_url}
-                    alt={selectedPoi.name}
-                    style={{
-                      width: "100%",
-                      height: 120,
-                      objectFit: "cover",
-                      borderRadius: 8,
-                      marginBottom: 8,
-                    }}
-                  />
+                  <div className="poiPopupMedia">
+                    <img
+                      src={selectedPoi.imageUrl || selectedPoi.image_url}
+                      alt={selectedPoi.name}
+                    />
+                  </div>
                 )}
-                <h3 style={{ margin: "0 0 6px 0", fontSize: 16, fontWeight: 700 }}>
-                  {selectedPoi.name}
-                </h3>
-                <div className="row" style={{ marginTop: 8 }}>
-                  <button
-                    className="btn btnPrimary"
-                    style={{ flex: 1, padding: "8px", fontSize: 13 }}
-                    onClick={() => openPoiDetails(selectedPoi)}
-                  >
-                    Xem chi tiết
-                  </button>
-                  <button
-                    className="btn"
-                    style={{ padding: "8px", fontSize: 13 }}
-                    disabled={isTtsLoading}
-                    onClick={() => {
-                      const msg = getPoiShortText(selectedPoi);
-                      playTTS(selectedPoi, msg, speechLang, selectedSpeechLocale);
-                    }}
-                  >
-                    {isTtsLoading ? <span className="spinner" aria-hidden="true" /> : "🔊"}
-                    <span>{isTtsLoading ? "Đang tạo" : "Nghe"}</span>
-                  </button>
+                <div className="poiPopupBody">
+                  <div className="poiPopupTitle">{selectedPoi.name}</div>
+                  <div className="poiPopupSub">Nhấn để xem chi tiết hoặc dẫn đường nhanh.</div>
+                  <div className="poiPopupActions">
+                    <button className="btn btnPrimary" onClick={() => openPoiDetails(selectedPoi)}>
+                      Xem chi tiết
+                    </button>
+                    <button className="btn" onClick={() => handleDirections(selectedPoi)}>
+                      Chỉ đường
+                    </button>
+                    <button
+                      className="btn"
+                      disabled={isTtsLoading}
+                      onClick={() => {
+                        const msg = getPoiShortText(selectedPoi);
+                        playTTS(selectedPoi, msg, speechLang, selectedSpeechLocale);
+                      }}
+                    >
+                      {isTtsLoading ? <span className="spinner" aria-hidden="true" /> : "🔊"}
+                      <span>{isTtsLoading ? "Đang tạo" : "Nghe"}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </Popup>
@@ -486,7 +827,7 @@ export function MapPage() {
             <button
               className={`mobileSearchToggle ${showSearchPanel ? "mobileSearchToggleOpen" : ""}`}
               onClick={() => setShowSearchPanel((s) => !s)}
-              aria-label="Mo tim kiem"
+              aria-label="Mở tìm kiếm"
               aria-expanded={showSearchPanel}
             >
               🔍
@@ -517,233 +858,96 @@ export function MapPage() {
                 ))}
               </div>
             </div>
-            {showDirections && (
-              <div className="card cardPad" style={{ background: "var(--panel)", backdropFilter: "blur(16px)", boxShadow: "0 8px 32px rgba(0,0,0,0.2)" }}>
-                 <div className="rowBetween" style={{ marginBottom: 12 }}>
-                   <div style={{ fontWeight: 800 }}>{t("tourist.map.directionsTitle")}</div>
-                   <button className="btn btnGhost" style={{ padding: "4px 8px" }} onClick={() => setShowDirections(false)}>✕</button>
-                 </div>
-                 <div className="row">
-                    <select className="select" value={profile} onChange={(e) => setProfile(e.target.value as DirectionsProfile)}>
-                      <option value="walking">{t("tourist.map.walking")}</option>
-                      <option value="driving">{t("tourist.map.driving")}</option>
-                      <option value="cycling">{t("tourist.map.cycling")}</option>
-                    </select>
-                    <button
-                      className="btn btnPrimary"
-                      onClick={() => {
-                        if (!position) {
-                          showToast({ title: t("tourist.map.noGps") });
-                          return;
-                        }
-                        const toList = filteredPois.map(x => x.p);
-                        if (toList.length === 0) {
-                          showToast({ title: "Không có POI nào gần đây" });
-                          return;
-                        }
-                        const to = { lat: toList[0].lat, lng: toList[0].lng };
-                        getDirections({ from: position, to, profile })
-                          .then((res) => setRoute(res.route))
-                          .catch(() => showToast({ title: "Khong tim thay duong di" }));
-                      }}
-                    >
-                      Tìm
-                    </button>
-                 </div>
-                 {route && (
-                   <div style={{ marginTop: 12 }}>
-                     <div className="row" style={{ flexWrap: "wrap", marginBottom: 8 }}>
-                       <span className="pill">~ {Math.round(route.distanceMeters)} m</span>
-                       <span className="pill">~ {Math.round(route.durationSeconds / 60)} min</span>
-                     </div>
-                     <div style={{ display: "grid", gap: 8, maxHeight: "25vh", overflowY: "auto", paddingRight: 4 }}>
-                       {route.steps.map((s, i) => (
-                         <div key={i} className="pill" style={{ justifyContent: "space-between", borderRadius: 8 }}>
-                           <span>{s.instruction}</span>
-                           <span style={{color: 'var(--brand)', fontWeight: 600}}>{Math.round(s.distanceMeters)}m</span>
-                         </div>
-                       ))}
-                     </div>
-                   </div>
-                 )}
-              </div>
+            {showDirectionsOverlay && (
+              <DirectionsPanel
+                show={showDirectionsOverlay ? true : false}
+                isMobile={isMobile}
+                route={route}
+                isRouting={isRouting}
+                dirTab={dirTab}
+                setDirTab={setDirTab}
+                sheetExpanded={sheetExpanded}
+                setSheetExpanded={setSheetExpanded}
+                profile={profile}
+                setProfile={setProfile}
+                tourMeta={tourMeta}
+                tourPois={tourPois}
+                filteredTourPois={filteredTourPois}
+                addStopCandidates={addStopCandidates}
+                tourQuery={tourQuery}
+                setTourQuery={setTourQuery}
+                showAddStop={showAddStop}
+                setShowAddStop={setShowAddStop}
+                selectedStopIds={selectedStopIds}
+                setSelectedStopIds={setSelectedStopIds}
+                selectedStops={selectedStops}
+                isMultiRouting={isMultiRouting}
+                startMultiRoute={startMultiRoute}
+                showAllSteps={showAllSteps}
+                setShowAllSteps={setShowAllSteps}
+                hideBottomNav={hideBottomNav}
+                toggleBottomNav={toggleBottomNav}
+                setShowDirections={setShowDirections}
+                showToast={showToast}
+              />
             )}
+
           </div>
 
-          {/* RIGHT: Floating Action Buttons */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 12, pointerEvents: "auto", alignItems: "flex-end", marginLeft: 16 }}>
-            <button
-              onClick={() => setShowDirections(s => !s)}
-              className="card"
-              style={{ width: 44, height: 44, borderRadius: 22, display: "flex", alignItems: "center", justifyContent: "center", border: showDirections ? "2px solid var(--brand)" : "1px solid var(--border)", background: showDirections ? "var(--panel-2)" : "var(--panel)", color: "var(--text)", boxShadow: "0 4px 12px rgba(0,0,0,0.15)", cursor: "pointer", fontSize: 18 }}
-            >
-              🗺️
-            </button>
-            <button
-              onClick={() => setShowPoiList((s) => !s)}
-              className="card"
-              style={{ width: 44, height: 44, borderRadius: 22, display: "flex", alignItems: "center", justifyContent: "center", border: showPoiList ? "2px solid var(--brand)" : "1px solid var(--border)", background: showPoiList ? "var(--panel-2)" : "var(--panel)", color: "var(--text)", boxShadow: "0 4px 12px rgba(0,0,0,0.15)", cursor: "pointer", fontSize: 18 }}
-            >
-              📋
-            </button>
-            <button
-              onClick={() => setTtsOn((v) => !v)}
-              className="card"
-              style={{ width: 44, height: 44, borderRadius: 22, display: "flex", alignItems: "center", justifyContent: "center", border: ttsOn ? "2px solid var(--brand)" : "1px solid var(--border)", background: ttsOn ? "var(--brand)" : "var(--panel)", color: ttsOn ? "#fff" : "var(--text)", boxShadow: "0 4px 12px rgba(0,0,0,0.15)", cursor: "pointer", fontSize: 18 }}
-            >
-              {isTtsLoading ? "⏳" : ttsOn ? "🔊" : "🔈"}
-            </button>
-            <button
-              onClick={() => setShowTtsSettings((s) => !s)}
-              className="card"
-              style={{ width: 44, height: 44, borderRadius: 22, display: "flex", alignItems: "center", justifyContent: "center", border: showTtsSettings ? "2px solid var(--brand)" : "1px solid var(--border)", background: showTtsSettings ? "var(--panel-2)" : "var(--panel)", color: "var(--text)", boxShadow: "0 4px 12px rgba(0,0,0,0.15)", cursor: "pointer", fontSize: 18 }}
-            >
-              ⚙️
-            </button>
-
-            {/* TTS Settings Dropdown */}
-            {showTtsSettings && (
-              <div className="card cardPad" style={{ width: 220, background: "var(--panel)", backdropFilter: "blur(16px)", marginTop: 4, textAlign: "left", boxShadow: "0 8px 32px rgba(0,0,0,0.2)" }}>
-                <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13 }}>Giọng đọc TTS</div>
-                  <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 12 }}>Murf Voice</div>
-                  <div className="row" style={{ gap: 8, alignItems: "center" }}>
-                    <select
-                      className="select"
-                      value={selectedMurfGender}
-                      onChange={(e) => {
-                        const nextGender = e.target.value as "female" | "male";
-                        setSelectedMurfGender(nextGender);
-                        setSelectedMurfVoice(murfVoices[nextGender]);
-                      }}
-                      style={{ fontSize: 13, padding: "8px", width: 110 }}
-                    >
-                      <option value="female">Female</option>
-                      <option value="male">Male</option>
-                    </select>
-                    <select
-                      className="select"
-                      value={selectedMurfVoice}
-                      onChange={(e) => setSelectedMurfVoice(e.target.value)}
-                      style={{ fontSize: 13, padding: "8px", flex: 1 }}
-                    >
-                      <option value={murfVoices.female}>{murfVoices.female}</option>
-                      <option value={murfVoices.male}>{murfVoices.male}</option>
-                    </select>
-                  </div>
-                  <div style={{ height: 8 }} />
-                  <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 12 }}>Web Speech (fallback)</div>
-                  <select
-                    className="select"
-                    value={selectedSpeechLocale}
-                    onChange={(e) => setSelectedSpeechLocale(e.target.value)}
-                    style={{ fontSize: 13, padding: "8px" }}
-                  >
-                    {speechLocaleOptions.map((locale) => (
-                      <option key={locale} value={locale}>{locale}</option>
-                    ))}
-                  </select>
-                  <div style={{ height: 8 }} />
-                  <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>Tốc độ đọc</div>
-                  <select
-                    className="select"
-                    value={ttsRate}
-                    onChange={(e) => setTtsRate(Number(e.target.value))}
-                    style={{ fontSize: 13, padding: "8px" }}
-                  >
-                    <option value={0.8}>0.8x</option>
-                    <option value={1}>1.0x</option>
-                    <option value={1.2}>1.2x</option>
-                    <option value={1.5}>1.5x</option>
-                  </select>
-              </div>
-            )}
-          </div>
+          <FloatingActions
+            showDirections={showDirections}
+            onToggleDirections={() => setShowDirections((s) => !s)}
+            showPoiList={showPoiList}
+            onTogglePoiList={() => setShowPoiList((s) => !s)}
+            ttsOn={ttsOn}
+            onToggleTts={() => setTtsOn((v) => !v)}
+            isTtsLoading={isTtsLoading}
+            showTtsSettings={showTtsSettings}
+            onToggleTtsSettings={() => setShowTtsSettings((s) => !s)}
+            selectedMurfGender={selectedMurfGender}
+            onChangeMurfGender={(nextGender) => {
+              setSelectedMurfGender(nextGender);
+              setSelectedMurfVoice(murfVoices[nextGender]);
+            }}
+            selectedMurfVoice={selectedMurfVoice}
+            onChangeMurfVoice={setSelectedMurfVoice}
+            murfVoices={murfVoices}
+            selectedSpeechLocale={selectedSpeechLocale}
+            onChangeSpeechLocale={setSelectedSpeechLocale}
+            speechLocaleOptions={speechLocaleOptions}
+            ttsRate={ttsRate}
+            onChangeTtsRate={setTtsRate}
+          />
         </div>
 
       </div>
 
+      <DirectionsTopbar
+        show={Boolean(isMobile && showDirectionsOverlay)}
+        isTopbarCollapsed={isTopbarCollapsed}
+        setIsTopbarCollapsed={setIsTopbarCollapsed}
+        position={position ?? null}
+        routeTargetLabel={routeTargetLabel}
+      />
+
       {showPoiList && (
-        <div style={{ position: 'fixed', left: 14, right: 14, bottom: 86, zIndex: 12, pointerEvents: 'auto' }}>
-          <div className="poiSheet">
-            <div className="poiSheetHeader">
-              <div>
-                <div className="sectionTitle">Gần bạn</div>
-                <div className="sectionSub">{filteredPois.length} địa điểm</div>
-              </div>
-              <button className="btn btnGhost" onClick={() => setShowPoiList(false)}>
-                Ẩn
-              </button>
-            </div>
-            <div className="poiSheetList">
-              {filteredPois.map(({ p, d }) => (
-                <div key={p.id} className="poiSheetItem">
-                  {p.imageUrl || p.image_url ? (
-                    <img className="poiThumb" src={p.imageUrl || p.image_url} alt={p.name} />
-                  ) : (
-                    <div className="poiThumb" aria-hidden="true" />
-                  )}
-                  <div>
-                    <div className="poiTitle">{p.name}</div>
-                    <div className="poiSub">
-                      ⭐ {p.rating?.toFixed?.(1) ?? '-'}
-                      {p.tags?.[0] ? ` · ${p.tags[0]}` : ''}
-                    </div>
-                    <div className="poiDistance">Cách bạn ~{Math.round(d ?? 0)}m</div>
-                  </div>
-                  <button className="btn btnPrimary" onClick={() => openPoiDetails(p)}>
-                    Xem
-                  </button>
-                </div>
-              ))}
-              {filteredPois.length === 0 && (
-                <div className="muted" style={{ padding: 12 }}>Không có kết quả phù hợp.</div>
-              )}
-            </div>
-          </div>
-        </div>
+        <PoiListSheet
+          items={filteredPois}
+          onClose={() => setShowPoiList(false)}
+          onOpenPoi={openPoiDetails}
+        />
       )}
 
-      {viewingPoiId && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
-          <div 
-            style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
-            onClick={() => {
-              setViewingPoi(null);
-              setViewingPoiId(null);
-              setIsViewingPoiLoading(false);
-            }}
-          />
-          <div 
-            style={{ 
-              position: "relative",
-              background: "var(--bg)", 
-              borderTopLeftRadius: 24, 
-              borderTopRightRadius: 24, 
-              padding: "20px 20px calc(env(safe-area-inset-bottom) + 20px) 20px",
-              maxHeight: "85vh",
-              overflowY: "auto",
-              boxShadow: "0 -8px 40px rgba(0,0,0,0.3)",
-              animation: "slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)"
-            }}
-          >
-            <style>{`
-              @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-            `}</style>
-            <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
-              <div style={{ width: 40, height: 4, background: "var(--border)", borderRadius: 2 }} />
-            </div>
-            {isViewingPoiLoading && (
-              <div className="card cardPad">Dang tai...</div>
-            )}
-            {!isViewingPoiLoading && viewingPoi && (
-              <PoiDetails poi={viewingPoi} />
-            )}
-            {!isViewingPoiLoading && !viewingPoi && (
-              <div className="card cardPad">Khong tim thay POI.</div>
-            )}
-          </div>
-        </div>
-      )}
+      <PoiDetailsModal
+        open={Boolean(viewingPoiId)}
+        poi={viewingPoi}
+        loading={isViewingPoiLoading}
+        onClose={() => {
+          setViewingPoi(null);
+          setViewingPoiId(null);
+          setIsViewingPoiLoading(false);
+        }}
+      />
     </AppShell>
   );
 }
