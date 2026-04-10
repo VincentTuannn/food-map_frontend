@@ -5,7 +5,7 @@ const MENU_ITEMS = [
   { path: 'dashboard', label: 'Tổng quan', icon: '📊' },
   { path: 'users', label: 'Khách du lịch', icon: '👤' },
   { path: 'merchants', label: 'Đối tác', icon: '🏪' },
-  { path: 'admins', label: 'Quản trị viên', icon: '👑' },
+  { path: 'accounts', label: 'Quản trị viên', icon: '👑' },
   { path: 'pois', label: 'Duyệt địa điểm', icon: '📍' },
   { path: 'reviews', label: 'Đánh giá', icon: '⭐' },
   { path: 'tours', label: 'Tuyến đường', icon: '🗺️' },

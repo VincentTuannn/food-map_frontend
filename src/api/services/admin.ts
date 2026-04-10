@@ -4,15 +4,11 @@ import { apiFetch } from '../http';
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
 export const adminApi = {
-  // ==========================================
+  
   // 1. DASHBOARD (TỔNG QUAN)
-  // ==========================================
   getDashboardStats: () => apiFetch<any>('/admin/dashboard'),
 
-  // ==========================================
   // 2. USERS (KHÁCH DU LỊCH) & 4. ADMINS (QUẢN TRỊ VIÊN)
-  // ==========================================
-  // Backend dùng chung route /users, phân biệt bằng query role
   getUsers: (role?: string, search?: string, page = 1) => {
     const query = new URLSearchParams({
       role: role || '',
@@ -32,7 +28,7 @@ export const adminApi = {
 
   deleteUser: (id: string) => apiFetch(`/admin/users/${id}`, { method: 'DELETE' }),
 
-  // [MODULE 10] - ĐẶC QUYỀN TẠO ADMIN (POST /create-admin)
+  // [MODULE 10] - ĐẶC QUYỀN TẠO ADMIN
   createAdmin: (data: { email: string; password: string }) => 
     apiFetch('/admin/create-admin', {
       method: 'POST',
@@ -40,9 +36,7 @@ export const adminApi = {
       body: JSON.stringify(data),
     }),
 
-  // ==========================================
   // 3. MERCHANTS (ĐỐI TÁC)
-  // ==========================================
   getMerchants: (search?: string, status?: string, page = 1) => {
     const query = new URLSearchParams({
       search: search || '',
@@ -62,9 +56,7 @@ export const adminApi = {
 
   deleteMerchant: (id: string) => apiFetch(`/admin/merchants/${id}`, { method: 'DELETE' }),
 
-  // ==========================================
-  // 5. POIS (DUYỆT ĐỊA ĐIỂM)
-  // ==========================================
+  // 5. POIS (DANH SÁCH ĐỊA ĐIỂM CHUNG)
   getPois: (status?: string, search?: string) => {
     const query = new URLSearchParams({
       status: status || '',
@@ -72,6 +64,9 @@ export const adminApi = {
     }).toString();
     return apiFetch<any>(`/admin/pois?${query}`);
   },
+
+  // ✅ HÀM LẤY ĐỊA ĐIỂM CHỜ DUYỆT (ĐÃ FIX LỖI)
+  getPendingPOIs: () => apiFetch<any>('/admin/pois/pending'),
 
   updatePoiStatus: (id: string, status: 'PENDING' | 'ACTIVE' | 'INACTIVE' | 'REJECTED') => 
     apiFetch(`/admin/pois/${id}/status`, {
@@ -82,16 +77,12 @@ export const adminApi = {
 
   deletePoi: (id: string) => apiFetch(`/admin/pois/${id}`, { method: 'DELETE' }),
 
-  // ==========================================
   // 6. REVIEWS (KIỂM DUYỆT ĐÁNH GIÁ)
-  // ==========================================
   getReviews: (page = 1) => apiFetch<any>(`/admin/reviews?page=${page}&limit=10`),
   
   deleteReview: (id: string) => apiFetch(`/admin/reviews/${id}`, { method: 'DELETE' }),
 
-  // ==========================================
   // 7. TOURS (TUYẾN ĐƯỜNG)
-  // ==========================================
   getTours: () => apiFetch<any>('/admin/tours'),
 
   createTour: (data: { name: string; description?: string; poi_ids: string[] }) => 
@@ -103,16 +94,12 @@ export const adminApi = {
 
   deleteTour: (id: string) => apiFetch(`/admin/tours/${id}`, { method: 'DELETE' }),
 
-  // ==========================================
   // 8. PROMOTIONS (MÃ KHUYẾN MÃI)
-  // ==========================================
   getPromotions: () => apiFetch<any>('/admin/promotions'),
   
   deletePromotion: (id: string) => apiFetch(`/admin/promotions/${id}`, { method: 'DELETE' }),
 
-  // ==========================================
   // 9. TRANSACTIONS (ĐỐI SOÁT DÒNG TIỀN)
-  // ==========================================
   getTransactions: (status?: string, type?: string) => {
     const query = new URLSearchParams({
       status: status || '',
@@ -121,9 +108,7 @@ export const adminApi = {
     return apiFetch<any>(`/admin/transactions?${query}`);
   },
 
-  // ==========================================
   // 10. TRACKING LOGS (NHẬT KÝ HỆ THỐNG)
-  // ==========================================
   getTrackingLogs: (event_type?: string) => 
     apiFetch<any>(`/admin/tracking-logs?event_type=${event_type || ''}`),
 };

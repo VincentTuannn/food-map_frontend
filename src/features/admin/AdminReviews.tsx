@@ -21,7 +21,6 @@ export function AdminReviews() {
   const loadReviews = async () => {
     setIsFetching(true);
     try {
-      // Gọi API lấy review (kèm filter nếu admin.ts đã hỗ trợ)
       const res = await adminApi.getReviews(); 
       setReviews(Array.isArray(res) ? res : res?.data || []);
     } catch (error) {
@@ -31,9 +30,10 @@ export function AdminReviews() {
     }
   };
 
+  // ✅ SỬA LỖI SPAM API: Chỉ tải dữ liệu 1 lần khi mở trang
   useEffect(() => {
     loadReviews();
-  }, [filters.rating]);
+  }, []);
 
   // 2. Xử lý Xóa đánh giá vi phạm (DELETE /reviews/:id)
   const handleDeleteReview = async (id: string) => {
@@ -55,6 +55,12 @@ export function AdminReviews() {
   const renderStars = (rating: number) => {
     return '⭐'.repeat(rating) + '☆'.repeat(5 - rating);
   };
+
+  // ✅ TUYỆT CHIÊU LỌC FRONTEND: Lọc danh sách ngay trên giao diện
+  const displayedReviews = reviews.filter((rev) => {
+    if (!filters.rating) return true; // Nếu chọn "Tất cả số sao", hiển thị hết
+    return String(rev.rating) === filters.rating; // So sánh bằng chữ để đảm bảo khớp 100%
+  });
 
   return (
     <div style={{ animation: 'fadeIn 0.3s' }}>
@@ -80,7 +86,7 @@ export function AdminReviews() {
               <option value="2">2 sao ⭐⭐</option>
               <option value="1">1 sao ⭐</option>
             </select>
-            <button className="btn btnGhost" onClick={loadReviews}>🔄</button>
+            <button className="btn btnGhost" onClick={loadReviews}>🔄 Làm mới</button>
           </div>
         </div>
       </div>
@@ -89,10 +95,10 @@ export function AdminReviews() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
         {isFetching ? (
           <div className="card cardPad" style={{ textAlign: 'center', color: '#888' }}>⏳ Đang tải đánh giá...</div>
-        ) : reviews.length === 0 ? (
-          <div className="card cardPad" style={{ textAlign: 'center', color: '#888' }}>Không có đánh giá nào phù hợp.</div>
+        ) : displayedReviews.length === 0 ? (
+          <div className="card cardPad" style={{ textAlign: 'center', color: '#888' }}>Không có đánh giá nào phù hợp với bộ lọc.</div>
         ) : (
-          reviews.map((rev) => (
+          displayedReviews.map((rev) => (
             <div key={rev.id} className="card cardPad" style={{ background: '#1E1E2D', border: '1px solid #333' }}>
               <div className="rowBetween">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -123,7 +129,7 @@ export function AdminReviews() {
                   📍 Địa điểm: <b style={{ color: '#aaa' }}>{rev.poi?.name || 'N/A'}</b>
                 </div>
                 <div style={{ fontSize: 11, color: '#444' }}>
-                  Gửi lúc: {new Date(rev.created_at || rev.createdAt).toLocaleString('vi-VN')}
+                  Gửi lúc: {rev.created_at || rev.createdAt ? new Date(rev.created_at || rev.createdAt).toLocaleString('vi-VN') : 'Không rõ thời gian'}
                 </div>
               </div>
             </div>

@@ -22,7 +22,8 @@ export function AdminMerchants() {
   const loadMerchants = async () => {
     setIsFetching(true);
     try {
-      const res = await adminApi.getMerchants(filterSub, searchTerm);
+      // ✅ ĐÃ SỬA LỖI: Truyền đúng thứ tự (searchTerm trước, filterSub sau)
+      const res = await adminApi.getMerchants(searchTerm, filterSub);
       setMerchants(Array.isArray(res) ? res : res?.data || []);
     } catch (error) {
       showToast({ title: '❌ Lỗi tải danh sách đối tác' });
@@ -31,7 +32,14 @@ export function AdminMerchants() {
     }
   };
 
-  useEffect(() => { loadMerchants(); }, [filterSub]);
+  // ✅ TUYỆT CHIÊU DEBOUNCE: Tự động tải lại data khi gõ chữ hoặc đổi bộ lọc
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      loadMerchants();
+    }, 500); // Đợi 500ms sau khi ngừng thao tác mới gọi API
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchTerm, filterSub]); // Chạy lại mỗi khi ô tìm kiếm hoặc dropdown thay đổi
 
   // 2. Cập nhật trạng thái Hội viên (PATCH /merchants/:id/status)
   const handleUpdateSubscription = async (id: string, newStatus: string) => {
@@ -67,18 +75,22 @@ export function AdminMerchants() {
         <h2 style={{ margin: '0 0 20px 0', color: '#fff', fontSize: 24, fontWeight: 800 }}>🤝 Đối tác (Merchants)</h2>
         <div style={{ display: 'flex', gap: 12 }}>
           <input 
-            className="input" placeholder="Tìm theo Tên hoặc Email..." 
+            className="input" placeholder="Tìm theo Tên hoặc Email (Tự động tìm)..." 
             style={{ flex: 1 }}
-            value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && loadMerchants()}
+            value={searchTerm} 
+            onChange={e => setSearchTerm(e.target.value)}
           />
-          <select className="select" style={{ width: 200 }} value={filterSub} onChange={e => setFilterSub(e.target.value)}>
+          <select 
+            className="select" style={{ width: 200 }} 
+            value={filterSub} 
+            onChange={e => setFilterSub(e.target.value)}
+          >
             <option value="">Tất cả trạng thái gói</option>
             <option value="ACTIVE">✅ Đang hoạt động (Active)</option>
             <option value="SUSPENDED">⚠️ Tạm ngưng (Suspended)</option>
             <option value="INACTIVE">⚪ Ngừng kích hoạt (Inactive)</option>
           </select>
-          <button className="btn btnPrimary" onClick={loadMerchants}>Tìm kiếm</button>
+          {/* Đã ẩn nút "Tìm kiếm" vì hệ thống tự động chạy Debounce */}
         </div>
       </div>
 
@@ -95,6 +107,7 @@ export function AdminMerchants() {
           </thead>
           <tbody>
             {isFetching ? (<tr><td colSpan={4} style={{ textAlign: 'center', padding: 40 }}>⏳ Đang truy xuất danh sách...</td></tr>) : 
+             merchants.length === 0 ? (<tr><td colSpan={4} style={{ textAlign: 'center', padding: 40, color: '#666' }}>Không tìm thấy đối tác nào.</td></tr>) :
              merchants.map(m => (
               <tr key={m.id} style={{ borderBottom: '1px solid #222' }}>
                 <td style={{ padding: 12 }}>

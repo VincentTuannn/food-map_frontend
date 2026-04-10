@@ -10,7 +10,7 @@ export function AdminUsers() {
   const [isFetching, setIsFetching] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // States Chi tiết & Modal (Dùng isModalOpen)
+  // States Chi tiết & Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
 
@@ -22,7 +22,6 @@ export function AdminUsers() {
   const loadUsers = async () => {
     setIsFetching(true);
     try {
-      // Backend dùng query role='user' để lấy khách du lịch
       const res = await adminApi.getUsers('user', searchQuery);
       setUsers(Array.isArray(res) ? res : res?.data || []);
     } catch (error) {
@@ -32,9 +31,18 @@ export function AdminUsers() {
     }
   };
 
-  useEffect(() => { loadUsers(); }, [searchQuery]);
+  // ✅ TUYỆT CHIÊU DEBOUNCE: Tự động tìm kiếm an toàn, chống Spam API (Lỗi 429)
+  useEffect(() => {
+    // Chờ 500ms (nửa giây) sau khi ngừng gõ mới gọi API
+    const delayDebounceFn = setTimeout(() => {
+      loadUsers();
+    }, 500);
 
-  // 2. Cập nhật trạng thái/quyền lợi (PATCH /users/:id/status)
+    // Hủy lệnh gọi cũ nếu người dùng tiếp tục gõ
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]); // Chỉ chạy khi ô tìm kiếm thay đổi
+
+  // 2. Cập nhật trạng thái/quyền lợi
   const handleUpdateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
@@ -58,7 +66,7 @@ export function AdminUsers() {
     }
   };
 
-  // 3. Xóa người dùng (DELETE)
+  // 3. Xóa người dùng
   const handleDeleteUser = async (id: string) => {
     if (!window.confirm('⚠️ Xóa vĩnh viễn người dùng này? Mọi đánh giá và voucher của họ cũng sẽ bị ảnh hưởng.')) return;
     try {
@@ -70,6 +78,13 @@ export function AdminUsers() {
     }
   };
 
+  // ✅ BỘ LỌC TẠI CHỖ: Lọc trực tiếp trên giao diện mà không cần gọi lại API
+  const displayedUsers = users.filter((u) => {
+    if (filterPremium === 'true') return u.is_premium === true;
+    if (filterPremium === 'false') return !u.is_premium;
+    return true; // Nếu chọn "Tất cả hạng"
+  });
+
   return (
     <div style={{ animation: 'fadeIn 0.3s' }}>
       {/* HEADER & FILTER */}
@@ -77,19 +92,21 @@ export function AdminUsers() {
         <h2 style={{ margin: '0 0 20px 0', color: '#fff', fontSize: 24, fontWeight: 800 }}>👤 Khách du lịch</h2>
         <div style={{ display: 'flex', gap: 12 }}>
           <input 
-            className="input" placeholder="Tìm theo Email hoặc SĐT..." 
+            className="input" placeholder="Tìm theo Email hoặc SĐT (Tự động tìm)..." 
             style={{ flex: 1 }}
-            value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+            value={searchQuery} 
+            onChange={e => setSearchQuery(e.target.value)}
           />
           <select 
             className="select" style={{ width: 180 }} 
-            value={filterPremium} onChange={e => setFilterPremium(e.target.value)}
+            value={filterPremium} 
+            onChange={e => setFilterPremium(e.target.value)}
           >
             <option value="">Tất cả hạng</option>
             <option value="true">★ Premium</option>
             <option value="false">⚪ Free User</option>
           </select>
-          <button className="btn btnPrimary" onClick={loadUsers}>Tìm kiếm</button>
+          {/* Đã ẩn nút "Tìm kiếm" vì hệ thống giờ đã tự động tìm 100% */}
         </div>
       </div>
 
@@ -106,7 +123,8 @@ export function AdminUsers() {
           </thead>
           <tbody>
             {isFetching ? (<tr><td colSpan={4} style={{ textAlign: 'center', padding: 40 }}>⏳ Đang tải...</td></tr>) : 
-             users.map(u => (
+             displayedUsers.length === 0 ? (<tr><td colSpan={4} style={{ textAlign: 'center', padding: 40, color: '#666' }}>Không tìm thấy người dùng nào phù hợp.</td></tr>) :
+             displayedUsers.map(u => (
               <tr key={u.id} style={{ borderBottom: '1px solid #222' }}>
                 <td style={{ padding: 12 }}>
                   <div style={{ fontWeight: 700 }}>{u.email}</div>
@@ -119,7 +137,7 @@ export function AdminUsers() {
                   </div>
                 </td>
                 <td style={{ padding: 12 }}>
-                  <span className="pill" style={{ background: '#2A2A3C', color: '#aaa', fontSize: 10 }}>{u.role.toUpperCase()}</span>
+                  <span className="pill" style={{ background: '#2A2A3C', color: '#aaa', fontSize: 10 }}>{u.role?.toUpperCase() || 'USER'}</span>
                 </td>
                 <td style={{ padding: 12, textAlign: 'right' }}>
                   <button className="btn btnGhost" style={{ fontSize: 12 }} onClick={() => { setSelectedUser(u); setIsModalOpen(true); }}>✏️ Quản lý</button>
@@ -131,7 +149,7 @@ export function AdminUsers() {
         </table>
       </div>
 
-      {/* MODAL CẬP NHẬT QUYỀN LỢI (isModalOpen) */}
+      {/* MODAL CẬP NHẬT QUYỀN LỢI */}
       {isModalOpen && selectedUser && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)' }}>
           <div style={{ width: 450, background: '#1E1E2D', borderRadius: 12, border: '1px solid #444', overflow: 'hidden' }}>
