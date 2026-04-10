@@ -57,8 +57,21 @@ export function LoginPage() {
       } else {
         setErrorMsg('Đăng nhập thất bại: ' + (res.message || 'Không có token'));
       }
-    } catch (error) {
-      setErrorMsg('Lỗi đăng nhập: ' + (error instanceof Error ? error.message : 'Vui lòng thử lại'));
+    } catch (error: any) {
+      console.error('Lỗi ngoại lệ khi đăng nhập:', error)
+      let msg = error instanceof Error ? error.message : 'Vui lòng thử lại';
+      
+      if (error?.details?.error) {
+        msg = error.details.error;
+      } else if (error?.details?.message) {
+        msg = error.details.message;
+      }
+      
+      if (error?.status === 401) {
+        msg = 'Tài khoản không tồn tại hoặc sai mật khẩu';
+      }
+      
+      setErrorMsg(msg);
     } finally {
       setLoading(false)
     }
