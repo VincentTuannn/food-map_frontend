@@ -82,7 +82,6 @@ export function App() {
         <Route path="*" element={<MerchantDashboard />} />
       </Route>
 
-      {/* 4. ADMIN ROUTES */}
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<AdminDashboard />} />
         
