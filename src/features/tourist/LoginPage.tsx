@@ -11,7 +11,22 @@ export function LoginPage() {
 
   const nav = useNavigate()
   const setUserToken = useAppStore((s) => s.setUserToken)
+  const setUserRole = useAppStore((s) => s.setUserRole)
   const showToast = useAppStore((s) => s.showToast)
+
+  const normalizeRole = (role?: string) => {
+    const upper = role?.toUpperCase()
+    if (upper === 'ADMIN') return 'ADMIN'
+    if (upper === 'MERCHANT') return 'MERCHANT'
+    return 'USER'
+  }
+
+  const resolveHome = (role?: string) => {
+    const normalized = normalizeRole(role)
+    if (normalized === 'MERCHANT') return '/merchant'
+    if (normalized === 'ADMIN') return '/admin'
+    return '/tourist/start'
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -25,9 +40,13 @@ export function LoginPage() {
     try {
       const res = await loginUser(email, password)
       if (res.success && res.data?.token) {
+        const roleFromUser = res.data.user?.role
+        const role = res.data.role ?? roleFromUser
+        const normalizedRole = res.data.merchant ? 'MERCHANT' : normalizeRole(role)
         setUserToken(res.data.token)
+        setUserRole(normalizedRole)
         showToast({ title: 'Đăng nhập thành công!' })
-        nav('/tourist/start') // Or map
+        nav(resolveHome(normalizedRole))
       } else {
         setErrorMsg('Đăng nhập thất bại: ' + JSON.stringify(res))
       }

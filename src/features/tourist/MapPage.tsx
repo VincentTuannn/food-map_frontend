@@ -626,7 +626,7 @@ export function MapPage() {
       }));
   }, [filteredTourPois]);
 
-  const showDirectionsOverlay = showDirections && (route || isRouting);
+  const showDirectionsOverlay = Boolean(showDirections && (route || isRouting));
 
   const toggleBottomNav = () => {
     bottomNavTouchedRef.current = true;

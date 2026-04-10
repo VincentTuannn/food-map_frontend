@@ -13,6 +13,7 @@ export function RegisterPage() {
 
   const nav = useNavigate()
   const setUserToken = useAppStore((s) => s.setUserToken)
+  const setUserRole = useAppStore((s) => s.setUserRole)
   const showToast = useAppStore((s) => s.showToast)
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -39,6 +40,7 @@ export function RegisterPage() {
         const loginRes = await loginUser(email, password)
         if (loginRes.success && loginRes.data?.token) {
           setUserToken(loginRes.data.token)
+          setUserRole('USER')
           showToast({ title: 'Đăng ký thành công!' })
           nav('/tourist/start')
         } else {
