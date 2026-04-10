@@ -1,4 +1,7 @@
+
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import './adminStyle.css';
 
 // Định nghĩa 10 Module chuẩn theo Backend
 const MENU_ITEMS = [
@@ -16,84 +19,68 @@ const MENU_ITEMS = [
 
 export function AdminLayout() {
   const navigate = useNavigate();
-  // XÓA DÒNG CONST LOGOUT BỊ LỖI ĐI
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Đóng sidebar khi đổi route (mobile UX)
+  useEffect(() => { setSidebarOpen(false); }, [window.location.pathname]);
 
   const handleLogout = () => {
     if (window.confirm('Bạn có chắc chắn muốn đăng xuất?')) {
-      // 1. Xóa dữ liệu đăng nhập
-      localStorage.removeItem('userToken'); 
-      localStorage.removeItem('userRole'); // Nếu bạn có lưu role
-      
-      // 2. Chuyển hướng
+      localStorage.removeItem('userToken');
+      localStorage.removeItem('userRole');
       navigate('/login');
-      
-      // 3. Reload nhẹ để reset lại toàn bộ state của app (tùy chọn)
       window.location.reload();
     }
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#0D0D14', color: '#fff' }}>
-      
-      {/* SIDEBAR (Bên trái) */}
-      <aside style={{
-        width: 260,
-        background: '#151521',
-        borderRight: '1px solid #222',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'fixed',
-        height: '100vh'
-      }}>
-        <div style={{ padding: '25px 20px', fontSize: 18, fontWeight: 900, color: '#9D4EDD', borderBottom: '1px solid #222' }}>
-          VĨNH KHÁNH ADMIN
-        </div>
+    <div className="admin-root">
+      {/* SIDEBAR TOGGLE BUTTON (mobile) */}
+      <button
+        className="admin-sidebar-toggle"
+        aria-label="Mở menu"
+        onClick={() => setSidebarOpen(true)}
+      >
+        <span className="admin-sidebar-toggle-icon">☰</span>
+      </button>
 
-        <nav style={{ flex: 1, padding: '20px 12px', overflowY: 'auto' }}>
+      {/* SIDEBAR */}
+      <aside className={`admin-sidebar${sidebarOpen ? ' open' : ''}`}>
+        <div className="admin-logo">VĨNH KHÁNH ADMIN</div>
+        <nav className="admin-nav">
           {MENU_ITEMS.map((item) => (
             <NavLink
               key={item.path}
               to={`/admin/${item.path}`}
-              style={({ isActive }) => ({
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                padding: '12px 16px',
-                marginBottom: 4,
-                borderRadius: 8,
-                textDecoration: 'none',
-                fontSize: 14,
-                transition: '0.2s',
-                color: isActive ? '#fff' : '#A0A0B0',
-                background: isActive ? '#7B2CBF' : 'transparent',
-              })}
+              className={({ isActive }) =>
+                'admin-nav-item' + (isActive ? ' active' : '')
+              }
+              onClick={() => setSidebarOpen(false)}
             >
-              <span>{item.icon}</span>
-              {item.label}
+              <span className="admin-nav-icon">{item.icon}</span>
+              <span className="admin-nav-label">{item.label}</span>
             </NavLink>
           ))}
         </nav>
-
-        <div style={{ padding: 20, borderTop: '1px solid #222' }}>
-          <button 
-            onClick={handleLogout}
-            style={{
-              width: '100%', padding: '10px', background: 'rgba(255, 77, 79, 0.1)',
-              color: '#ff4d4f', border: '1px solid rgba(255, 77, 79, 0.2)',
-              borderRadius: 8, cursor: 'pointer', fontWeight: 600
-            }}
-          >
+        <div className="admin-logout-wrap">
+          <button className="admin-logout" onClick={handleLogout}>
             🚪 Đăng xuất
           </button>
         </div>
+        {/* Nút đóng sidebar trên mobile */}
+        <button
+          className="admin-sidebar-close"
+          aria-label="Đóng menu"
+          onClick={() => setSidebarOpen(false)}
+        >
+          ×
+        </button>
       </aside>
 
-      {/* MAIN CONTENT (Bên phải) */}
-      <main style={{ flex: 1, marginLeft: 260, padding: '30px', minHeight: '100vh' }}>
-        {/* Dòng này cực kỳ quan trọng: Đây là nơi 10 module sẽ hiển thị */}
+      {/* MAIN CONTENT */}
+      <main className="admin-main">
         <Outlet />
       </main>
-
     </div>
   );
 }

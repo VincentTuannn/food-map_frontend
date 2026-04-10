@@ -87,14 +87,14 @@ export function AdminTracking() {
     <div style={{ animation: 'fadeIn 0.3s' }}>
       {/* KHỐI BỘ LỌC CẢI TIẾN */}
       <div className="card cardPad" style={{ marginBottom: 20 }}>
-        <h2 style={{ margin: '0 0 20px 0', color: '#fff', fontSize: 22, fontWeight: 800 }}>🛡️ Nhật ký hệ thống</h2>
+        <h2 style={{ margin: '0 0 20px 0', color: '#8B7355', fontSize: 22, fontWeight: 800 }}>🛡️ Nhật ký hệ thống</h2>
         
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 15 }}>
           <div>
             <label style={{ color: '#888', fontSize: 12, display: 'block', marginBottom: 8 }}>Loại sự kiện</label>
             <select 
               className="input" 
-              style={{ width: '100%', background: '#151521' }}
+              style={{ width: '100%' }}
               value={filters.event_type}
               onChange={(e) => setFilters({...filters, event_type: e.target.value})}
             >
@@ -158,14 +158,14 @@ export function AdminTracking() {
             ) : (
               filteredLogs.map((log) => (
                 <tr key={log.id} style={{ borderBottom: '1px solid #222', fontSize: 13, transition: '0.2s' }}>
-                  <td style={{ padding: '15px 10px', color: '#aaa', whiteSpace: 'nowrap' }}>
+                  <td style={{ padding: '15px 10px', color: '#8B7355', whiteSpace: 'nowrap' }}>
                     {new Date(log.created_at || log.createdAt).toLocaleString('vi-VN')}
                   </td>
                   <td style={{ padding: '15px 10px' }}>
                     {getEventBadge(log.event_type)}
                   </td>
                   <td style={{ padding: '15px 10px' }}>
-                    <div style={{ fontWeight: 700, color: '#fff' }}>{log.user?.email || 'System'}</div>
+                    <div style={{ fontWeight: 700, color: '#8B7355' }}>{log.user?.email || 'System'}</div>
                     <div style={{ fontSize: 10, color: '#444' }}>ID: {log.user_id || 'N/A'}</div>
                   </td>
                   <td style={{ padding: '15px 10px', color: '#ddd', lineHeight: '1.5' }}>

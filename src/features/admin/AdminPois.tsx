@@ -212,7 +212,7 @@ export function AdminPois() {
 
       {/* ===== PHẦN 2: BỘ LỌC ===== */}
       <div className="card cardPad">
-        <h2 style={{ margin: '0 0 20px 0', color: '#fff', fontSize: 24, fontWeight: 800 }}>📍 Duyệt địa điểm (POIs)</h2>
+        <h2 style={{ margin: '0 0 20px 0', color: '#8B7355', fontSize: 24, fontWeight: 800 }}>📍 Duyệt địa điểm (POIs)</h2>
         <div style={{ display: 'flex', gap: 12 }}>
           <input 
             className="input" placeholder="Tìm tên địa điểm..." 
@@ -233,7 +233,7 @@ export function AdminPois() {
 
       {/* ===== PHẦN 3: BẢNG DANH SÁCH ===== */}
       <div className="card cardPad">
-        <table style={{ width: '100%', borderCollapse: 'collapse', color: '#fff', textAlign: 'left' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', color: '#8B7355', textAlign: 'left' }}>
           <thead>
             <tr style={{ color: '#666', borderBottom: '1px solid #333' }}>
               <th style={{ padding: 15 }}>Địa điểm / Tọa độ</th>

@@ -68,7 +68,7 @@ export function AdminReviews() {
       <div className="card cardPad" style={{ marginBottom: 20 }}>
         <div className="rowBetween">
           <div>
-            <h2 style={{ margin: 0, color: '#fff', fontSize: 24, fontWeight: 800 }}>⭐ Kiểm duyệt Đánh giá</h2>
+            <h2 style={{ margin: 0, color: '#8B7355', fontSize: 24, fontWeight: 800 }}>⭐ Kiểm duyệt Đánh giá</h2>
             <p style={{ color: '#888', marginTop: 5, fontSize: 14 }}>Quản lý và gỡ bỏ các nội dung đánh giá vi phạm tiêu chuẩn.</p>
           </div>
           

@@ -69,7 +69,7 @@ export function AdminDashboard() {
       <div style={{ fontSize: 32, background: `${color}22`, padding: 10, borderRadius: 12 }}>{icon}</div>
       <div>
         <div style={{ color: '#888', fontSize: 13, fontWeight: 600 }}>{title}</div>
-        <div style={{ color: '#fff', fontSize: 24, fontWeight: 900 }}>{value?.toLocaleString() || 0}</div>
+        <div style={{ color: '#8B7355', fontSize: 24, fontWeight: 900 }}>{value?.toLocaleString() || 0}</div>
       </div>
     </div>
   );
@@ -90,7 +90,7 @@ export function AdminDashboard() {
         
         {/* Thống kê POIs theo trạng thái */}
         <div className="card cardPad">
-          <h3 style={{ color: '#fff', margin: '0 0 15px 0', fontSize: 16 }}>📊 Trạng thái Địa điểm</h3>
+          <h3 style={{ color: '#8B7355', margin: '0 0 15px 0', fontSize: 16 }}>📊 Trạng thái Địa điểm</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {Object.entries(stats?.poisByStatus || {}).length > 0 ? (
                Object.entries(stats?.poisByStatus || {}).map(([status, count]: any) => (
@@ -111,7 +111,7 @@ export function AdminDashboard() {
 
         {/* Thống kê Tương tác & Dữ liệu khác */}
         <div className="card cardPad">
-          <h3 style={{ color: '#fff', margin: '0 0 15px 0', fontSize: 16 }}>📈 Chỉ số tương tác</h3>
+          <h3 style={{ color: '#8B7355', margin: '0 0 15px 0', fontSize: 16 }}>📈 Chỉ số tương tác</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15 }}>
             <div style={{ background: '#151521', padding: 12, borderRadius: 8 }}>
               <div style={{ color: '#666', fontSize: 11 }}>Đánh giá</div>
@@ -134,7 +134,7 @@ export function AdminDashboard() {
 
         {/* Trạng thái Đối tác */}
         <div className="card cardPad">
-          <h3 style={{ color: '#fff', margin: '0 0 15px 0', fontSize: 16 }}>🛡️ Tình trạng Đối tác</h3>
+          <h3 style={{ color: '#8B7355', margin: '0 0 15px 0', fontSize: 16 }}>🛡️ Tình trạng Đối tác</h3>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
             {Object.entries(stats?.merchantsByStatus || {}).length > 0 ? (
                Object.entries(stats?.merchantsByStatus || {}).map(([status, count]: any) => (
