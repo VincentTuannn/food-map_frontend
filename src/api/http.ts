@@ -38,9 +38,10 @@ export async function apiFetch<TResponse>(path: string, init?: RequestInit & { j
   const headers = new Headers(init?.headers)
   if (init?.json !== undefined) headers.set('Content-Type', 'application/json')
   
-  const token = useAppStore.getState().userToken
+  const token = useAppStore.getState().userToken || localStorage.getItem('userToken');
+
   if (token) {
-    headers.set('Authorization', `Bearer ${token}`)
+    headers.set('Authorization', `Bearer ${token}`);
   }
 
   const res = await fetch(url, {
