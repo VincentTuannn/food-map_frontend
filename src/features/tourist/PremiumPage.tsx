@@ -3,12 +3,29 @@ import { useAppStore } from '../../shared/store/appStore'
 import { AppShell } from '../../shared/ui/AppShell'
 import { useT } from '../../shared/i18n/useT'
 
+import { payPremium } from '../../api/services/payment'
+import type { I18nKey } from '../../shared/i18n/translations'
+
 type Plan = { id: string; name: string; price: string; perks: string[] }
 
 export function PremiumPage() {
   const showToast = useAppStore((s) => s.showToast)
   const t = useT()
   const [selected, setSelected] = useState<string>('pro-tour')
+
+  const userId = 'mock-user-id' // TODO: Lấy userId thực tế từ store/auth nếu có
+  const handlePay = async () => {
+    try {
+      const res = await payPremium(userId, selected)
+      if (res.success) {
+        showToast({ title: t('tourist.premium.paySuccess' as I18nKey), message: `Plan: ${selected}` })
+      } else {
+        showToast({ title: t('tourist.premium.payFailed' as I18nKey), message: res.message })
+      }
+    } catch (e) {
+      showToast({ title: t('tourist.premium.payFailed' as I18nKey), message: (e as any)?.message || 'Error' })
+    }
+  }
 
   const PLANS: Plan[] = [
     {
@@ -69,11 +86,11 @@ export function PremiumPage() {
 
         <div className="row">
           <button
-            className="btn btnPrimary"
-            onClick={() => showToast({ title: t('tourist.premium.payDemo'), message: `Plan: ${selected}` })}
-          >
-            {t('tourist.premium.buyNow')}
-          </button>
+              className="btn btnPrimary"
+              onClick={handlePay}
+            >
+              {t('tourist.premium.buyNow')}
+            </button>
           <button className="btn" onClick={() => showToast({ title: t('tourist.premium.restoreDemo') })}>
             {t('tourist.premium.restore')}
           </button>

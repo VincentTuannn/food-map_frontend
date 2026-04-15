@@ -1,0 +1,317 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+.subscribe-root {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #FDF8F0 0%, #F5EDE0 100%);
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* Header */
+.subscribe-header {
+  background: linear-gradient(135deg, #8B3A3A 0%, #6B2A2A 100%);
+  padding: 60px 40px 80px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.subscribe-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3C/rect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08'/%3E%3C/svg%3E");
+  pointer-events: none;
+}
+
+.subscribe-header-content {
+  position: relative;
+  z-index: 1;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.subscribe-logo {
+  font-family: 'Playfair Display', serif;
+  font-size: 48px;
+  font-weight: 800;
+  color: #F59E0B;
+  margin-bottom: 16px;
+}
+
+.subscribe-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 48px;
+  font-weight: 700;
+  color: #FFF9F0;
+  margin-bottom: 16px;
+}
+
+.subscribe-subtitle {
+  font-size: 16px;
+  color: rgba(255,249,240,0.7);
+  line-height: 1.6;
+}
+
+/* Main Content */
+.subscribe-main {
+  max-width: 1400px;
+  margin: -40px auto 0;
+  padding: 0 32px 60px;
+  position: relative;
+  z-index: 2;
+}
+
+/* Plans Grid */
+.plans-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 32px;
+  margin-bottom: 48px;
+}
+
+/* Plan Card */
+.plan-card {
+  background: white;
+  border-radius: 32px;
+  padding: 32px;
+  transition: all 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+  position: relative;
+  cursor: pointer;
+  border: 2px solid transparent;
+  box-shadow: 0 4px 20px rgba(139, 69, 19, 0.08);
+}
+
+.plan-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 40px rgba(139, 69, 19, 0.15);
+}
+
+.plan-card.selected {
+  border-color: #B85C38;
+  background: linear-gradient(135deg, white 0%, #FDF8F0 100%);
+  box-shadow: 0 20px 40px rgba(184, 92, 56, 0.2);
+}
+
+.plan-popular {
+  position: absolute;
+  top: -12px;
+  right: 24px;
+  background: linear-gradient(135deg, #F59E0B, #D97706);
+  color: white;
+  padding: 6px 16px;
+  border-radius: 40px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.plan-icon {
+  font-size: 48px;
+  margin-bottom: 20px;
+}
+
+.plan-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: #8B3A3A;
+  margin-bottom: 8px;
+}
+
+.plan-price {
+  margin-bottom: 24px;
+}
+
+.plan-price-amount {
+  font-size: 48px;
+  font-weight: 800;
+  color: #B85C38;
+}
+
+.plan-price-unit {
+  font-size: 14px;
+  color: #8B7355;
+}
+
+.plan-features {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 32px 0;
+}
+
+.plan-feature {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  font-size: 14px;
+  color: #4A3728;
+  border-bottom: 1px solid #E8D9C5;
+}
+
+.plan-feature:last-child {
+  border-bottom: none;
+}
+
+.plan-feature-check {
+  color: #10B981;
+  font-size: 18px;
+}
+
+.plan-select-btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 48px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  border: none;
+}
+
+.plan-select-btn-default {
+  background: #F5EDE0;
+  color: #8B7355;
+}
+
+.plan-select-btn-default:hover {
+  background: #E8D9C5;
+}
+
+.plan-select-btn-selected {
+  background: linear-gradient(135deg, #B85C38, #8B3A3A);
+  color: white;
+}
+
+.plan-select-btn-selected:hover {
+  transform: scale(0.98);
+}
+
+/* Payment Summary */
+.payment-summary {
+  background: white;
+  border-radius: 24px;
+  padding: 32px;
+  max-width: 500px;
+  margin: 0 auto;
+  border: 1px solid #E8D9C5;
+}
+
+.summary-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+  font-weight: 600;
+  color: #8B3A3A;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid #E8D9C5;
+}
+
+.summary-label {
+  color: #8B7355;
+}
+
+.summary-value {
+  font-weight: 600;
+  color: #4A3728;
+}
+
+.summary-total {
+  padding: 16px 0;
+  border-bottom: 2px solid #D4B896;
+}
+
+.summary-total .summary-label {
+  font-weight: 700;
+  color: #8B3A3A;
+}
+
+.summary-total .summary-value {
+  font-size: 24px;
+  font-weight: 800;
+  color: #B85C38;
+}
+
+.pay-btn {
+  width: 100%;
+  padding: 16px;
+  background: linear-gradient(135deg, #F59E0B, #D97706);
+  color: white;
+  border: none;
+  border-radius: 48px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-top: 24px;
+}
+
+.pay-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(217, 119, 6, 0.3);
+}
+
+.pay-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Loading */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.loading-spinner {
+  background: white;
+  border-radius: 20px;
+  padding: 32px;
+  text-align: center;
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid #E8D9C5;
+  border-top-color: #B85C38;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .subscribe-title {
+    font-size: 32px;
+  }
+  .subscribe-main {
+    padding: 0 16px 40px;
+  }
+  .plans-grid {
+    gap: 20px;
+  }
+  .plan-card {
+    padding: 24px;
+  }
+}

@@ -807,7 +807,7 @@ export function StartPage() {
   const t = useT()
 
   const [code, setCode] = useState('')
-  const [radius, setRadius] = useState(80)
+  const [radius, setRadius] = useState(50000)
   const [showQr, setShowQr] = useState(false)
   const setRadiusMeters = useAppStore((s) => s.setRadiusMeters)
   const [tours, setTours] = useState<Tour[]>([])

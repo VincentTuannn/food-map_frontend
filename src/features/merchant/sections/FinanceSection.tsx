@@ -1,7 +1,27 @@
 import type { MerchantProfile } from '../../../api/services/merchant'
 import { StatusBadge } from '../components/StatusBadge'
 
+import { payServiceFee } from '../../../api/services/payment'
+import { useAppStore } from '../../../shared/store/appStore'
+import { useState } from 'react'
+
 export function FinanceSection({ profile }: { profile: MerchantProfile | null }) {
+  const showToast = useAppStore((s) => s.showToast)
+  const [amount, setAmount] = useState('')
+  const merchantId = profile?.id || 'mock-merchant-id'
+
+  const handlePayService = async () => {
+    try {
+      const res = await payServiceFee(merchantId, Number(amount))
+      if (res.success) {
+        showToast({ title: 'Thanh toán thành công', message: `Số tiền: ${amount} VNĐ` })
+      } else {
+        showToast({ title: 'Thanh toán thất bại', message: res.message })
+      }
+    } catch (e) {
+      showToast({ title: 'Thanh toán thất bại', message: (e as any)?.message || 'Error' })
+    }
+  }
   const plans = [
     { name: 'Starter', price: '199.000', period: '/tháng', features: ['5 POI', '1.000 TTS credits', 'Basic analytics', 'Email support'], featured: false },
     { name: 'Growth', price: '599.000', period: '/tháng', features: ['20 POI', '5.000 TTS credits', 'Full analytics + heatmap', 'Push notification', 'Priority support'], featured: true },
@@ -46,7 +66,7 @@ export function FinanceSection({ profile }: { profile: MerchantProfile | null })
           <div className="md-grid-2">
             <div className="md-field">
               <label className="md-label">Số tiền nạp (VNĐ)</label>
-              <input className="md-input" type="number" placeholder="100000" />
+              <input className="md-input" type="number" placeholder="100000" value={amount} onChange={e => setAmount(e.target.value)} />
             </div>
             <div className="md-field">
               <label className="md-label">Phương thức thanh toán</label>
@@ -57,7 +77,7 @@ export function FinanceSection({ profile }: { profile: MerchantProfile | null })
               </select>
             </div>
           </div>
-          <button className="btn-primary" style={{ marginTop: 14 }}>💳 Nạp tiền ngay</button>
+          <button className="btn-primary" style={{ marginTop: 14 }} onClick={handlePayService}>💳 Nạp tiền ngay</button>
         </div>
       </div>
     </>

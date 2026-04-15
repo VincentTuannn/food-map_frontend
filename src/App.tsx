@@ -15,6 +15,30 @@ import { LoginPage } from './features/tourist/LoginPage'
 import { RegisterPage } from './features/tourist/RegisterPage'
 
 import { MerchantDashboard } from './features/merchant/MerchantDashboard'
+import { MerchantRegisterPage } from './features/merchant/MerchantRegisterPage'
+
+// Wrapper: Nếu merchant chưa active chỉ cho phép thanh toán
+import { useEffect, useState } from 'react'
+import { getMerchantProfile } from './api/services/merchant'
+import { MerchantSubscribePage } from './features/merchant/MerchantSubscribePage'
+function MerchantDashboardWrapper() {
+  const [profile, setProfile] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    getMerchantProfile().then(setProfile).finally(() => setLoading(false))
+  }, [])
+  if (loading) return <div>Đang tải...</div>
+  if (profile?.subscription_status !== 'ACTIVE') {
+    return (
+      <div >
+        <h2>Tài khoản chưa được kích hoạt</h2>
+        <p>Vui lòng chọn gói dịch vụ và thanh toán để mở khóa tài khoản merchant.</p>
+        <MerchantSubscribePage />
+      </div>
+    )
+  }
+  return <MerchantDashboard />
+}
 
 // --- ADMIN MODULES ---
 import { AdminLayout } from './features/admin/AdminLayout'
@@ -64,6 +88,9 @@ export function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
 
+      {/* Merchant Register */}
+      <Route path="/merchant/register" element={<MerchantRegisterPage />} />
+
       {/* 2. TOURIST ROUTES */}
       <Route path="/tourist" element={<TouristAuthRoute />}>
         <Route path="start" element={<StartPage />} />
@@ -78,8 +105,8 @@ export function App() {
       <Route path="/tour/shared/:shareToken" element={<SharedTourPage />} />
 
       <Route path="/merchant" element={<RoleRoute allowed={['MERCHANT']} />}>
-        <Route index element={<MerchantDashboard />} />
-        <Route path="*" element={<MerchantDashboard />} />
+        <Route index element={<MerchantDashboardWrapper />} />
+        <Route path="*" element={<MerchantDashboardWrapper />} />
       </Route>
 
       <Route path="/admin" element={<AdminLayout />}>
