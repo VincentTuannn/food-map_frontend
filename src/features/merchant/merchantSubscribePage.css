@@ -1,5 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
+@import "tailwindcss";
 
+/* Header */
 .subscribe-root {
   min-height: 100vh;
   background: linear-gradient(135deg, #FDF8F0 0%, #F5EDE0 100%);

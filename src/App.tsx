@@ -1,10 +1,11 @@
-import { Navigate, Route, Routes, Outlet } from 'react-router-dom'
+import { Navigate, Route, Routes, Outlet } from 'react-router-dom';
+import './shared/i18n/i18n';
 import { useAppStore } from './shared/store/appStore'
 import type { AuthRole } from './api/services/identity'
 
 // --- TOURIST MODULES ---
 
-import { StartPage } from './features/tourist/StartPage'
+import { ProfileTab } from './features/tourist/ProfileTab'
 import { MapPage } from './features/tourist/MapPage'
 import { PoiPage } from './features/tourist/PoiPage'
 import { PremiumPage } from './features/tourist/PremiumPage'
@@ -13,7 +14,7 @@ import { MyTourDetailPage } from './features/tourist/MyTourDetailPage'
 import { SharedTourPage } from './features/tourist/SharedTourPage'
 import { LoginPage } from './features/tourist/LoginPage'
 import { RegisterPage } from './features/tourist/RegisterPage'
-
+import  RoutePage  from './features/tourist/RoutePage'
 import { MerchantDashboard } from './features/merchant/MerchantDashboard'
 import { MerchantRegisterPage } from './features/merchant/MerchantRegisterPage'
 
@@ -93,8 +94,9 @@ export function App() {
 
       {/* 2. TOURIST ROUTES */}
       <Route path="/tourist" element={<TouristAuthRoute />}>
-        <Route path="start" element={<StartPage />} />
+        <Route path="start" element={<ProfileTab />} />
         <Route path="map" element={<MapPage />} />
+        <Route path="route" element={<RoutePage />} />
         <Route path="poi/:poiId" element={<PoiPage />} />
         <Route path="premium" element={<PremiumPage />} />
         <Route path="tours" element={<MyToursPage />} />

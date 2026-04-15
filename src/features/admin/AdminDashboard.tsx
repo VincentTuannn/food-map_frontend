@@ -51,34 +51,36 @@ export function AdminDashboard() {
 
   useEffect(() => { loadDashboard(); }, []);
 
-  if (isFetching) return <div style={{ color: '#888', textAlign: 'center', padding: 50 }}>⏳ Đang tổng hợp số liệu hệ thống...</div>;
+  if (isFetching) return (
+    <div className="text-gray-400 text-center py-20 animate-pulse select-none">
+      ⏳ Đang tổng hợp số liệu hệ thống...
+    </div>
+  );
 
   // Thành phần thẻ chỉ số nhỏ (Đã thêm tính năng Click chuyển trang)
   const StatCard = ({ title, value, icon, color, path }: any) => (
-    <div 
-      className="card cardPad" 
+    <div
+      className={`flex items-center gap-5 bg-white/5 shadow-lg rounded-xl px-6 py-5 border-l-4 transition-all duration-200 hover:scale-[1.025] hover:shadow-2xl active:scale-100 cursor-${path ? 'pointer' : 'default'} group animate-fadeIn`}
+      style={{ borderLeft: `4px solid ${color}` }}
       onClick={() => path && navigate(path)}
-      style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        gap: 20, 
-        borderLeft: `4px solid ${color}`,
-        cursor: path ? 'pointer' : 'default', // Hiện hình bàn tay nếu có link
-      }}
     >
-      <div style={{ fontSize: 32, background: `${color}22`, padding: 10, borderRadius: 12 }}>{icon}</div>
+      <div
+        className="text-3xl p-2 rounded-xl mr-1 flex items-center justify-center"
+        style={{ background: `${color}22` }}
+      >{icon}</div>
       <div>
-        <div style={{ color: '#888', fontSize: 13, fontWeight: 600 }}>{title}</div>
-        <div style={{ color: '#8B7355', fontSize: 24, fontWeight: 900 }}>{value?.toLocaleString() || 0}</div>
+        <div className="text-gray-400 text-xs font-semibold mb-1">{title}</div>
+        <div className="text-[#8B7355] text-2xl font-extrabold tracking-tight group-hover:text-[var(--brand)] transition-colors duration-200">
+          {value?.toLocaleString() || 0}
+        </div>
       </div>
     </div>
   );
 
   return (
-    <div style={{ animation: 'fadeIn 0.4s', display: 'flex', flexDirection: 'column', gap: 24 }}>
-      
+    <div className="flex flex-col gap-8 animate-fadeIn">
       {/* 1. HÀNG ĐẦU: CÁC CON SỐ TỔNG QUÁT (Đã gắn link) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatCard title="Tổng Doanh thu" value={stats?.totalRevenue} icon="💰" color="#00C853" path="/admin/transactions" />
         <StatCard title="Khách du lịch" value={stats?.totalUsers} icon="👥" color="#7B2CBF" path="/admin/users" />
         <StatCard title="Đối tác (Merchant)" value={stats?.totalMerchants} icon="🏪" color="#9D4EDD" path="/admin/merchants" />
@@ -86,78 +88,80 @@ export function AdminDashboard() {
       </div>
 
       {/* 2. HÀNG GIỮA: CHI TIẾT TRẠNG THÁI & TƯƠNG TÁC */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 }}>
-        
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
         {/* Thống kê POIs theo trạng thái */}
-        <div className="card cardPad">
-          <h3 style={{ color: '#8B7355', margin: '0 0 15px 0', fontSize: 16 }}>📊 Trạng thái Địa điểm</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="bg-white/5 shadow-lg rounded-xl px-6 py-5 animate-fadeIn flex flex-col gap-2">
+          <h3 className="text-[#8B7355] mb-3 text-base font-bold">📊 Trạng thái Địa điểm</h3>
+          <div className="flex flex-col gap-2">
             {Object.entries(stats?.poisByStatus || {}).length > 0 ? (
-               Object.entries(stats?.poisByStatus || {}).map(([status, count]: any) => (
-                <div key={status} className="rowBetween" style={{ fontSize: 14 }}>
-                  <span style={{ color: '#aaa' }}>{status}</span>
-                  <b style={{ color: '#fff' }}>{count}</b>
+              Object.entries(stats?.poisByStatus || {}).map(([status, count]: any) => (
+                <div key={status} className="flex items-center justify-between text-sm">
+                  <span className="text-gray-400">{status}</span>
+                  <b className="text-white font-bold">{count}</b>
                 </div>
               ))
             ) : (
-                <div style={{ color: '#666', fontSize: 14, fontStyle: 'italic' }}>Chưa có dữ liệu trạng thái</div>
+              <div className="text-gray-500 text-sm italic">Chưa có dữ liệu trạng thái</div>
             )}
-            
-            <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #222', color: 'var(--brand)', fontSize: 13 }}>
+            <div className="mt-3 pt-3 border-t border-[#222] text-[var(--brand)] text-xs">
               ✨ <b>{stats?.newPoisLast7Days || 0}</b> địa điểm mới trong 7 ngày qua
             </div>
           </div>
         </div>
 
         {/* Thống kê Tương tác & Dữ liệu khác */}
-        <div className="card cardPad">
-          <h3 style={{ color: '#8B7355', margin: '0 0 15px 0', fontSize: 16 }}>📈 Chỉ số tương tác</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15 }}>
-            <div style={{ background: '#151521', padding: 12, borderRadius: 8 }}>
-              <div style={{ color: '#666', fontSize: 11 }}>Đánh giá</div>
-              <div style={{ color: '#fff', fontSize: 18, fontWeight: 700 }}>{stats?.totalReviews}</div>
+        <div className="bg-white/5 shadow-lg rounded-xl px-6 py-5 animate-fadeIn">
+          <h3 className="text-[#8B7355] mb-3 text-base font-bold">📈 Chỉ số tương tác</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-[#151521] p-3 rounded-lg">
+              <div className="text-gray-400 text-[11px]">Đánh giá</div>
+              <div className="text-white text-lg font-bold">{stats?.totalReviews}</div>
             </div>
-            <div style={{ background: '#151521', padding: 12, borderRadius: 8 }}>
-              <div style={{ color: '#666', fontSize: 11 }}>Tuyến đường</div>
-              <div style={{ color: '#fff', fontSize: 18, fontWeight: 700 }}>{stats?.totalTours}</div>
+            <div className="bg-[#151521] p-3 rounded-lg">
+              <div className="text-gray-400 text-[11px]">Tuyến đường</div>
+              <div className="text-white text-lg font-bold">{stats?.totalTours}</div>
             </div>
-            <div style={{ background: '#151521', padding: 12, borderRadius: 8 }}>
-              <div style={{ color: '#666', fontSize: 11 }}>Khuyến mãi</div>
-              <div style={{ color: '#fff', fontSize: 18, fontWeight: 700 }}>{stats?.totalPromotions}</div>
+            <div className="bg-[#151521] p-3 rounded-lg">
+              <div className="text-gray-400 text-[11px]">Khuyến mãi</div>
+              <div className="text-white text-lg font-bold">{stats?.totalPromotions}</div>
             </div>
-            <div style={{ background: '#151521', padding: 12, borderRadius: 8 }}>
-              <div style={{ color: '#666', fontSize: 11 }}>Giao dịch</div>
-              <div style={{ color: '#fff', fontSize: 18, fontWeight: 700 }}>{stats?.totalTransactions}</div>
+            <div className="bg-[#151521] p-3 rounded-lg">
+              <div className="text-gray-400 text-[11px]">Giao dịch</div>
+              <div className="text-white text-lg font-bold">{stats?.totalTransactions}</div>
             </div>
           </div>
         </div>
 
         {/* Trạng thái Đối tác */}
-        <div className="card cardPad">
-          <h3 style={{ color: '#8B7355', margin: '0 0 15px 0', fontSize: 16 }}>🛡️ Tình trạng Đối tác</h3>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+        <div className="bg-white/5 shadow-lg rounded-xl px-6 py-5 animate-fadeIn">
+          <h3 className="text-[#8B7355] mb-3 text-base font-bold">🛡️ Tình trạng Đối tác</h3>
+          <div className="flex flex-wrap gap-2">
             {Object.entries(stats?.merchantsByStatus || {}).length > 0 ? (
-               Object.entries(stats?.merchantsByStatus || {}).map(([status, count]: any) => (
-                 <div key={status} style={{ flex: 1, minWidth: '40%', background: '#151521', padding: 10, borderRadius: 8, border: '1px solid #222' }}>
-                   <div style={{ color: '#555', fontSize: 10, fontWeight: 800 }}>{status}</div>
-                   <div style={{ color: status === 'ACTIVE' ? '#00C853' : '#FF3B30', fontSize: 20, fontWeight: 900 }}>{count}</div>
-                 </div>
-               ))
+              Object.entries(stats?.merchantsByStatus || {}).map(([status, count]: any) => (
+                <div
+                  key={status}
+                  className="flex-1 min-w-[40%] bg-[#151521] p-2 rounded-lg border border-[#222] flex flex-col items-center"
+                >
+                  <div className="text-gray-500 text-[10px] font-extrabold">{status}</div>
+                  <div className={`text-[20px] font-extrabold ${status === 'ACTIVE' ? 'text-[#00C853]' : 'text-[#FF3B30]'}`}>{count}</div>
+                </div>
+              ))
             ) : (
-                <div style={{ color: '#666', fontSize: 14, fontStyle: 'italic' }}>Chưa có dữ liệu trạng thái</div>
+              <div className="text-gray-500 text-sm italic">Chưa có dữ liệu trạng thái</div>
             )}
           </div>
         </div>
-
       </div>
 
       {/* 3. NÚT LÀM MỚI NHANH */}
-      <div style={{ textAlign: 'right' }}>
-        <button className="btn btnGhost" onClick={loadDashboard} style={{ fontSize: 12 }}>
+      <div className="text-right">
+        <button
+          className="inline-flex items-center gap-1 px-4 py-2 text-xs font-semibold rounded-lg border border-[var(--brand)] text-[var(--brand)] bg-transparent hover:bg-[var(--brand)] hover:text-white transition-all duration-150 shadow-sm active:scale-95"
+          onClick={loadDashboard}
+        >
           Cập nhật dữ liệu lúc: {new Date().toLocaleTimeString()} 🔄
         </button>
       </div>
-
     </div>
   );
 }

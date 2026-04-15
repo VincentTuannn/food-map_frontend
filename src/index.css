@@ -1,0 +1,141 @@
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+:root {
+    --orange: #FF6B35;
+    --orange-light: rgba(255, 107, 53, 0.12);
+    --orange-dim: rgba(255, 107, 53, 0.06);
+    --map-bg: #e8eddf;
+    --surface: #ffffff;
+    --surface2: #f7f7f5;
+    --text: #1a1a1a;
+    --text2: #666666;
+    --text3: #999999;
+    --border: rgba(0, 0, 0, 0.08);
+    --bottom-nav-h: 68px;
+    --top-bar-h: 64px;
+    --sidebar-w: 360px;
+}
+
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body,
+#root {
+    height: 100%;
+    font-family: 'Be Vietnam Pro', sans-serif;
+    background: var(--surface);
+    color: var(--text);
+}
+
+/* Animation, theme, reset, global overrides giữ lại */
+@keyframes slideUp {
+    from {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes pulse-ring {
+    0% {
+        transform: scale(1);
+        opacity: 0.6;
+    }
+
+    100% {
+        transform: scale(2.5);
+        opacity: 0;
+    }
+}
+
+.animate-slide-up {
+    animation: slideUp 0.35s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.2s ease both;
+}
+
+.animate-pulse-ring {
+    animation: pulse-ring 2s ease-out infinite;
+}
+
+/* Scrollbar */
+.custom-scroll::-webkit-scrollbar {
+    width: 4px;
+}
+
+.custom-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 2px;
+}
+
+/* Screen transitions */
+.screen-enter {
+    animation: fadeIn 0.2s ease both;
+}
+
+
+@layer components {
+    
+    .btn-primary {
+        @apply flex items-center justify-center gap-2 rounded-xl font-semibold text-white transition-all active:scale-95;
+        background: var(--orange);
+        box-shadow: 0 4px 16px rgba(255, 107, 53, 0.3);
+    }
+
+    .btn-primary:hover {
+        background: #e55a25;
+    }
+
+    .btn-secondary {
+        @apply flex items-center justify-center gap-2 rounded-xl font-semibold transition-all active:scale-95;
+        background: var(--orange-light);
+        color: var(--orange);
+    }
+
+    .card {
+        @apply rounded-2xl p-4 transition-all;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+    }
+
+    .card-hover:hover {
+        border-color: var(--orange);
+        background: var(--orange-dim);
+    }
+
+    .tag-free {
+        @apply text-xs font-semibold px-2 py-1 rounded-full;
+        background: rgba(46, 200, 102, 0.12);
+        color: #1e8a3e;
+    }
+
+    .tag-premium {
+        @apply text-xs font-semibold px-2 py-1 rounded-full;
+        background: var(--orange-light);
+        color: var(--orange);
+    }
+}

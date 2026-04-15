@@ -3,7 +3,10 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { App } from './App'
 import { useAppStore } from './shared/store/appStore'
-import './style.css'
+// import './style.css'
+import './index.css'
+
+import './shared/i18n/i18n'
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

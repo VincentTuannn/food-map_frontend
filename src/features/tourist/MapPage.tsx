@@ -1,34 +1,20 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { distanceMeters } from "../../shared/lib/geo";
-import { getNearbyPois } from "../../api/services/location";
-import { useAppStore } from "../../shared/store/appStore";
-import { AppShell } from "../../shared/ui/AppShell";
-import { useT } from "../../shared/i18n/useT";
-import type {
-  DirectionsProfile,
-  DirectionsRoute,
-} from "../../api/services/directions";
-import { getDirections } from "../../api/services/directions";
-import { getCachedPoiContent, getPoiContent } from "../../api/services/content";
-import { getPoiById, type ApiPoi } from "../../api/services/poi";
-import { getMyTour, type UserTourPoi } from "../../api/services/userTours";
-import { getTourPois, type TourPoi } from "../../api/services/tours";
-import type { Poi } from "../../shared/domain/poi";
-import { logTrackingEvent } from "../../api/services/trackingLogs";
-import { DirectionsPanel } from "./components/DirectionsPanel";
-import { DirectionsTopbar } from "./components/DirectionsTopbar";
-import { FloatingActions } from "./components/FloatingActions";
-import { PoiDetailsModal } from "./components/PoiDetailsModal";
-import { PoiListSheet } from "./components/PoiListSheet";
-
-import MapView, { Layer, Marker, Popup, Source } from "react-map-gl";
+import React, { useEffect, useState, useRef, useMemo } from "react";
+import MapView, { Marker, Popup, Source, Layer } from "react-map-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
+import { 
+  Search, MapPin, Navigation, Info, Headphones, Crosshair, 
+  Map as MapIcon, SlidersHorizontal, X, Clock, Route as RouteIcon 
+} from "lucide-react";
+import { useAppStore } from "../../shared/store/appStore";
+import { getNearbyPois } from "../../api/services/location";
+import { getCachedPoiContent, getPoiContent } from "../../api/services/content";
+import BottomNav from "../../shared/ui/BottomNav";
 
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || "YOUR_TOKEN_HERE";
 
+// --- TTS fallback (Web Speech API) ---
 function speak(text: string, lang: string, voiceURI?: string) {
-  if (!("speechSynthesis" in window)) return;
+  if (!('speechSynthesis' in window)) return;
   const u = new SpeechSynthesisUtterance(text);
   u.lang = lang;
   if (voiceURI) {
@@ -40,86 +26,100 @@ function speak(text: string, lang: string, voiceURI?: string) {
   window.speechSynthesis.speak(u);
 }
 
+function TabButton({ active, tabName, onClick, children }: { active?: boolean; tabName: string; onClick?: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      className={`px-5 py-3 rounded-t-2xl font-bold text-sm sm:text-base transition-all duration-300 focus:outline-none ${
+        active
+          ? 'bg-white/80 backdrop-blur-md shadow-sm text-emerald-700 border-b-2 border-emerald-500'
+          : 'bg-transparent text-gray-400 hover:text-emerald-500 hover:bg-white/40 border-b-2 border-transparent'
+      }`}
+      style={{ minWidth: 110 }}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
+
 export function MapPage() {
-  const language = useAppStore((s) => s.language);
-  const theme = useAppStore((s) => s.theme);
-  const radiusMeters = useAppStore((s) => s.radiusMeters);
+  // Zustand state
   const position = useAppStore((s) => s.position);
   const setPosition = useAppStore((s) => s.setPosition);
   const showToast = useAppStore((s) => s.showToast);
-  const t = useT();
-  const location = useLocation();
-  const nav = useNavigate();
+  const language = useAppStore((s) => s.language);
 
-  const [ttsOn, setTtsOn] = useState(true);
-  const [profile, setProfile] = useState<DirectionsProfile>("walking");
-  const [route, setRoute] = useState<DirectionsRoute | undefined>(undefined);
-  const lastTriggerRef = useRef<string | undefined>(undefined);
+  // UI state
   const [selectedPoi, setSelectedPoi] = useState<any>(null);
-
-  const [showTtsSettings, setShowTtsSettings] = useState(false);
-  const [showDirections, setShowDirections] = useState(false);
-  const [viewingPoi, setViewingPoi] = useState<Poi | null>(null);
-  const [viewingPoiId, setViewingPoiId] = useState<string | null>(null);
-  const [isViewingPoiLoading, setIsViewingPoiLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [fullDetailsPoi, setFullDetailsPoi] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'food' | 'drink' | 'sight'>('all');
-  const [showPoiList, setShowPoiList] = useState(true);
-  const [showSearchPanel, setShowSearchPanel] = useState(false);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [selectedSpeechLocale, setSelectedSpeechLocale] = useState<string>("en-US");
-  const [selectedMurfVoice, setSelectedMurfVoice] = useState<string>("");
-  const [selectedMurfGender, setSelectedMurfGender] = useState<"female" | "male">("female");
-  const [ttsRate, setTtsRate] = useState(1);
   const [isTtsLoading, setIsTtsLoading] = useState(false);
-  const [tourPois, setTourPois] = useState<Array<TourPoi & UserTourPoi & { poiId?: string }>>([]);
-  const [isTourLoading, setIsTourLoading] = useState(false);
-  const [tourQuery, setTourQuery] = useState("");
-  const [tourOnly, setTourOnly] = useState(false);
-  const [tourMeta, setTourMeta] = useState<{ id: string; scope: "mine" | "saved"; name?: string } | null>(null);
-  const [multiLegs, setMultiLegs] = useState<DirectionsRoute[]>([]);
-  const [multiLegIndex, setMultiLegIndex] = useState(0);
-  const [multiRouteLabel, setMultiRouteLabel] = useState<string | null>(null);
-  const [selectedStopIds, setSelectedStopIds] = useState<Set<string>>(new Set());
-  const [showAddStop, setShowAddStop] = useState(false);
-  const [isMultiRouting, setIsMultiRouting] = useState(false);
+  const [mapStyle, setMapStyle] = useState<"streets" | "outdoors">("outdoors");
+  
+  // Sidebar/BottomSheet state
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<'list' | 'directions'>('list');
+  
+  // Routing state
+  const [routeData, setRouteData] = useState<any>(null);
   const [isRouting, setIsRouting] = useState(false);
-  const [routeTargetLabel, setRouteTargetLabel] = useState<string | null>(null);
+
+  // Responsive state
   const [isMobile, setIsMobile] = useState(false);
-  const [sheetExpanded, setSheetExpanded] = useState(false);
-  const [isTopbarCollapsed, setIsTopbarCollapsed] = useState(false);
-  const [showAllSteps, setShowAllSteps] = useState(false);
-  const [dirTab, setDirTab] = useState<"overview" | "steps">("overview");
-  const autoNavRef = useRef(false);
-  const tourPoiNameRef = useRef<Set<string>>(new Set());
-  const [hideBottomNav, setHideBottomNav] = useState(false);
-  const bottomNavTouchedRef = useRef(false);
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= 640);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
-  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  // TTS state/refs
+  const [selectedMurfVoice] = useState<string | undefined>(undefined);
+  const [selectedMurfGender] = useState<'female' | 'male'>('female');
+  const [ttsRate] = useState(1);
+  const [selectedSpeechLocale] = useState<string | undefined>(undefined);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const seenTtsKeysRef = useRef<Set<string>>(new Set());
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
 
+  useEffect(() => {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      const populateVoices = () => setVoices(window.speechSynthesis.getVoices());
+      populateVoices();
+      window.speechSynthesis.onvoiceschanged = populateVoices;
+    }
+  }, []);
+
+  // --- Real POI Data ---
+  const [apiPois, setApiPois] = useState<any[]>([]);
+  useEffect(() => {
+    if (!position) return;
+    getNearbyPois({ lat: position.lat, lng: position.lng, radiusMeters: 5000, limit: 30 })
+      .then((res) => setApiPois(res.items || []))
+      .catch(() => showToast({ title: "Không tải được điểm gần đây" }));
+  }, [position, showToast]);
+
+  const filteredPois = useMemo(() => {
+    return apiPois.filter(p => {
+      if (categoryFilter !== 'all' && p.category !== categoryFilter) return false;
+      if (searchQuery && !p.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      return true;
+    });
+  }, [apiPois, searchQuery, categoryFilter]);
+
+  // --- TTS Logic ---
   const playTTS = async (poi: any, text: string, langArg: string, voiceURI?: string) => {
     try {
       setIsTtsLoading(true);
-      const ttsOptions = {
-        voice: selectedMurfVoice || undefined,
-        gender: selectedMurfGender,
-        speed: ttsRate,
-      };
-      const ttsKey = [
-        poi.id,
-        selectedSpeechLocale,
-        ttsOptions.voice ?? "default",
-        ttsOptions.gender,
-        ttsOptions.speed,
-      ].join("|");
+      const ttsOptions = { voice: selectedMurfVoice, gender: selectedMurfGender, speed: ttsRate };
+      const locale = selectedSpeechLocale || langArg || 'vi-VN';
+      const ttsKey = [poi.id, locale, ttsOptions.voice ?? "default", ttsOptions.gender, ttsOptions.speed].join("|");
       const preferCache = seenTtsKeysRef.current.has(ttsKey);
 
-      const cached = getCachedPoiContent(poi.id, selectedSpeechLocale, ttsOptions);
+      const cached = getCachedPoiContent?.(poi.id, locale, ttsOptions);
       if (cached?.audioUrl) {
-        if (currentAudioRef.current) {
-          currentAudioRef.current.pause();
-        }
+        if (currentAudioRef.current) currentAudioRef.current.pause();
         window.speechSynthesis.cancel();
         const audio = new Audio(cached.audioUrl);
         audio.playbackRate = ttsRate;
@@ -128,826 +128,472 @@ export function MapPage() {
         return;
       }
 
-      const res = await getPoiContent(poi.id, selectedSpeechLocale, {
-        ...ttsOptions,
-        preferCache,
-      });
+      const res = await getPoiContent?.(poi.id, locale, { ...ttsOptions, preferCache });
       seenTtsKeysRef.current.add(ttsKey);
 
-      // Attempt to extract the URL depending on how the backend ultimately builds the response payload
       const audioUrl = (res as any)?.data?.audio_url || (res as any)?.audio_url || res?.audioUrl || res?.data?.audioUrl;
-
       if (audioUrl) {
-        if (currentAudioRef.current) {
-          currentAudioRef.current.pause();
-        }
-        window.speechSynthesis.cancel(); // Also stop any ongoing web speech
+        if (currentAudioRef.current) currentAudioRef.current.pause();
+        window.speechSynthesis.cancel();
         const audio = new Audio(audioUrl);
         audio.playbackRate = ttsRate;
         currentAudioRef.current = audio;
         await audio.play();
-        return; // Success, skip fallback
+        return;
       }
     } catch (err) {
-      console.warn("Failed to fetch API TTS, running fallback Web Speech API", err);
+      console.warn("Failed API TTS, running fallback", err);
     } finally {
       setIsTtsLoading(false);
     }
-    
-    // Fallback to Web Speech API when backend has no TTS URL
-    if (currentAudioRef.current) {
-      currentAudioRef.current.pause();
-    }
+
+    if (currentAudioRef.current) currentAudioRef.current.pause();
     if ("speechSynthesis" in window) {
       const utterance = new SpeechSynthesisUtterance(`${poi.name}. ${text}`);
-      utterance.lang = selectedSpeechLocale || langArg;
+      utterance.lang = selectedSpeechLocale || langArg || 'vi-VN';
       utterance.rate = ttsRate;
-      const fallbackVoice = voices.find((x) => x.lang === (selectedSpeechLocale || langArg));
+      const fallbackVoice = voices.find((x) => x.lang === (selectedSpeechLocale || langArg || 'vi-VN'));
       if (fallbackVoice) utterance.voice = fallbackVoice;
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(utterance);
       return;
     }
-    speak(`${poi.name}. ${text}`, langArg, voiceURI);
+    speak(`${poi.name}. ${text}`, selectedSpeechLocale || langArg || 'vi-VN', voiceURI);
   };
 
-  const normalizePoiFromApi = (apiPoi: ApiPoi, poiId: string): Poi => {
-    const shortFromApi = apiPoi.short ?? apiPoi.descriptions ?? {};
-    const lat = apiPoi.lat ?? apiPoi.latitude ?? apiPoi.location?.coordinates?.[1] ?? 0;
-    const lng = apiPoi.lng ?? apiPoi.longitude ?? apiPoi.location?.coordinates?.[0] ?? 0;
-    const rating = apiPoi.average_rating ?? apiPoi.rating ?? 0;
-    const priceLevel = (apiPoi.price_level ?? 1) as 1 | 2 | 3;
-    const rawVoucher = apiPoi.voucher;
-    const voucher =
-      rawVoucher && rawVoucher.code && rawVoucher.description && rawVoucher.expiresAt
-        ? { code: rawVoucher.code, description: rawVoucher.description, expiresAt: rawVoucher.expiresAt }
-        : undefined;
-    const normalizedReviews = (apiPoi.reviews ?? [])
-      .filter((r) => r?.author && typeof r.stars === "number" && r?.text)
-      .map((r) => ({
-        author: r.author as string,
-        stars: r.stars as number,
-        text: r.text as string,
-      }));
-
-    return {
-      id: apiPoi.id ?? poiId,
-      name: apiPoi.name ?? "POI",
-      category: (apiPoi as any).category ?? "food",
-      imageUrl: apiPoi.imageUrl ?? apiPoi.image_url,
-      lat,
-      lng,
-      rating: Number(rating),
-      priceLevel,
-      tags: apiPoi.tags ?? [],
-      short: {
-        vi: shortFromApi.vi ?? "",
-        en: shortFromApi.en ?? "",
-        ja: shortFromApi.ja ?? "",
-        zh: shortFromApi.zh ?? "",
-        ko: shortFromApi.ko ?? "",
-      },
-      menuHighlights: apiPoi.menuHighlights ?? apiPoi.menu_highlights ?? [],
-      voucher,
-      reviews: normalizedReviews,
-    };
+  const handleListen = (poi: any) => {
+    const description = poi.short?.[language] || poi.description || poi.name;
+    playTTS(poi, description, language);
   };
 
-  const getPoiShortText = (poi: any) => {
-    const short = poi?.short ?? {};
-    return language === "vi"
-      ? short.vi ?? poi?.name ?? ""
-      : language === "ja"
-        ? short.ja ?? poi?.name ?? ""
-        : language === "zh"
-          ? short.zh ?? poi?.name ?? ""
-          : language === "ko"
-            ? short.ko ?? poi?.name ?? ""
-            : short.en ?? poi?.name ?? "";
-  };
-
-  const openPoiDetails = (poi: any) => {
-    if (!poi?.id) return;
-    setViewingPoi(null);
-    setViewingPoiId(poi.id);
-    setIsViewingPoiLoading(true);
-    logTrackingEvent({ event: "poi_open", poiId: poi.id }).catch(() => undefined);
-    getPoiById(poi.id)
-      .then((res) => {
-        if (res?.data) {
-          setViewingPoi(normalizePoiFromApi(res.data, poi.id));
-        } else {
-          setViewingPoi(null);
-        }
-      })
-      .catch(() => setViewingPoi(null))
-      .finally(() => setIsViewingPoiLoading(false));
-  };
-
-  const normalizeTourPoi = (poi: TourPoi | UserTourPoi) => {
-    const rawPoi = (poi as any).poi;
-    const poiId = (poi as UserTourPoi).poi_id ?? rawPoi?.id ?? (poi as TourPoi).id;
-    const order = (poi as UserTourPoi).order_index ?? (poi as TourPoi).order;
-    return {
-      ...poi,
-      poiId,
-      order,
-      id: poiId ?? (poi as UserTourPoi).id ?? (poi as TourPoi).id,
-      name: (poi as UserTourPoi).name ?? rawPoi?.name ?? (poi as TourPoi).name,
-      lat: (poi as UserTourPoi).lat ?? (poi as TourPoi).lat,
-      lng: (poi as UserTourPoi).lng ?? (poi as TourPoi).lng,
-    };
-  };
-
-  const resolveTourPoiCoords = async (poi: { id: string; poiId?: string; lat?: number; lng?: number; name?: string }) => {
-    if (poi.lat && poi.lng && poi.name) return poi;
-    const lookupId = poi.poiId ?? poi.id;
-    const res = await getPoiById(lookupId);
-    const apiPoi = res?.data;
-    if (!apiPoi) return poi;
-    const lat = apiPoi.lat ?? apiPoi.latitude ?? apiPoi.location?.coordinates?.[1] ?? 0;
-    const lng = apiPoi.lng ?? apiPoi.longitude ?? apiPoi.location?.coordinates?.[0] ?? 0;
-    return {
-      ...poi,
-      name: apiPoi.name ?? poi.name,
-      lat: poi.lat ?? lat,
-      lng: poi.lng ?? lng,
-    };
-  };
-
-  const handleDirections = async (poi: any) => {
+  // --- Chức năng Chỉ đường ---
+  const handleGetDirections = async (destPoi: any) => {
     if (!position) {
-      showToast({ title: t("tourist.map.noGps") });
+      showToast({ title: "Chưa xác định được vị trí của bạn!" });
       return;
     }
-    if (!poi?.lat || !poi?.lng) return;
-
+    setSelectedPoi(null); 
+    setIsRouting(true);
     try {
-      const res = await getDirections({
-        from: { lat: position.lat, lng: position.lng },
-        to: { lat: poi.lat, lng: poi.lng },
-        profile,
-      });
-      setRoute(res.route);
-      setMultiLegs([]);
-      setMultiLegIndex(0);
-      setMultiRouteLabel(null);
-      setRouteTargetLabel(poi.name ?? poi.id ?? "Điểm đến");
-      setShowDirections(true);
-      setDirTab("overview");
-      if (isMobile) setSheetExpanded(true);
-      logTrackingEvent({ event: "route_request", poiId: poi.id, meta: { profile } }).catch(() => undefined);
-    } catch {
-      showToast({ title: "Không tìm thấy đường đi" });
-    }
-  };
-
-  const tourPoiKey = (poi: { poiId?: string; id?: string }) => poi.poiId ?? poi.id ?? "";
-
-  const resolveTourPoiList = async (list: Array<TourPoi & UserTourPoi & { poiId?: string }>) => {
-    const resolved: Array<{ id: string; name?: string; lat?: number; lng?: number }> = [];
-    for (const poi of list) {
-      const key = tourPoiKey(poi);
-      if (!key) continue;
-      const next = await resolveTourPoiCoords(poi);
-      if (typeof next.lat === "number" && typeof next.lng === "number") {
-        resolved.push({ id: key, name: next.name, lat: next.lat, lng: next.lng });
+      const destLng = destPoi.lng ?? destPoi.longitude;
+      const destLat = destPoi.lat ?? destPoi.latitude;
+      const url = `https://api.mapbox.com/directions/v5/mapbox/walking/${position.lng},${position.lat};${destLng},${destLat}?steps=true&geometries=geojson&language=vi&access_token=${MAPBOX_TOKEN}`;
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      if (data.routes && data.routes.length > 0) {
+        setRouteData({
+          ...data.routes[0],
+          destinationName: destPoi.name
+        });
+        setSidebarTab('directions');
+        setShowSidebar(true);
+      } else {
+        showToast({ title: "Không tìm thấy tuyến đường phù hợp" });
       }
-    }
-    return resolved;
-  };
-
-  const startMultiRoute = async (
-    list: Array<TourPoi & UserTourPoi & { poiId?: string }>,
-    label: string,
-  ) => {
-    if (!position) {
-      showToast({ title: t("tourist.map.noGps") });
-      return;
-    }
-    setIsMultiRouting(true);
-    try {
-      const resolved = await resolveTourPoiList(list);
-      if (resolved.length === 0) {
-        showToast({ title: "Không tìm thấy tọa độ POI" });
-        return;
-      }
-      if (resolved.length === 1) {
-        handleDirections(resolved[0]);
-        return;
-      }
-
-      const legs: DirectionsRoute[] = [];
-      let from = { lat: position.lat, lng: position.lng };
-      for (const poi of resolved) {
-        const res = await getDirections({ from, to: { lat: poi.lat!, lng: poi.lng! }, profile });
-        legs.push(res.route);
-        from = { lat: poi.lat!, lng: poi.lng! };
-      }
-
-      setMultiLegs(legs);
-      setMultiLegIndex(0);
-      setMultiRouteLabel(label);
-      setRoute(legs[0]);
-      setRouteTargetLabel(label);
-      setShowDirections(true);
-      setDirTab("overview");
-      if (isMobile) setSheetExpanded(true);
-    } catch {
-      showToast({ title: "Không thể tạo lộ trình nhiều điểm" });
+    } catch (error) {
+      showToast({ title: "Lỗi khi tải dữ liệu chỉ đường" });
     } finally {
-      setIsMultiRouting(false);
+      setIsRouting(false);
     }
   };
 
-  useEffect(() => {
-    const loadVoices = () => {
-      const v = window.speechSynthesis.getVoices();
-      if (v.length > 0) setVoices(v);
-    };
-    loadVoices();
-    if (window.speechSynthesis.onvoiceschanged !== undefined) {
-      window.speechSynthesis.onvoiceschanged = loadVoices;
-    }
-  }, []);
-
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth <= 768);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
-
-  useEffect(() => {
-    if (!showDirections) {
-      setIsTopbarCollapsed(false);
-    }
-  }, [showDirections]);
-
-  useEffect(() => {
-    setShowAllSteps(false);
-  }, [route?.geometry]);
-
-  useEffect(() => {
-    if (!showDirections) {
-      setDirTab("overview");
-    }
-  }, [showDirections]);
-
-  useEffect(() => {
-    if (!showDirections) {
-      setSelectedStopIds(new Set());
-    }
-  }, [showDirections]);
-
-  useEffect(() => {
-    if (showDirections) {
-      if (!bottomNavTouchedRef.current) setHideBottomNav(true);
-    } else {
-      setHideBottomNav(false);
-      bottomNavTouchedRef.current = false;
-    }
-  }, [showDirections]);
-
-  useEffect(() => {
-    if (tourPois.length === 0) return;
-    tourPois.forEach((poi) => {
-      const key = tourPoiKey(poi);
-      if (!key || (poi.name && poi.name.trim()) || tourPoiNameRef.current.has(key)) return;
-      tourPoiNameRef.current.add(key);
-      getPoiById(key)
-        .then((res) => {
-          const apiPoi = res?.data;
-          if (!apiPoi?.name) return;
-          setTourPois((prev) =>
-            prev.map((item) => (tourPoiKey(item) === key ? { ...item, name: apiPoi.name } : item))
-          );
-        })
-        .catch(() => undefined);
-    });
-  }, [tourPois]);
-
-  useEffect(() => {
-    if (!("geolocation" in navigator)) return;
-    const w = navigator.geolocation.watchPosition(
-      (p) => {
-        setPosition({ lat: p.coords.latitude, lng: p.coords.longitude });
-      },
-      () => {
-        // ignore
-      },
-      { enableHighAccuracy: true, maximumAge: 1000, timeout: 10_000 }
-    );
-    return () => navigator.geolocation.clearWatch(w);
-  }, [setPosition]);
-
-  const [apiPois, setApiPois] = useState<any[]>([]);
-  const nearbyCacheRef = useRef<Map<string, { ts: number; items: any[] }>>(new Map());
-  const lastNearbyFetchRef = useRef<{ ts: number; lat: number; lng: number; radius: number } | null>(null);
-  const inFlightNearbyRef = useRef<Promise<void> | null>(null);
-  const lastNearbyKeyRef = useRef<string | null>(null);
-  const NEARBY_MIN_INTERVAL_MS = 12000;
-  const NEARBY_MIN_MOVE_METERS = 40;
-  const NEARBY_CACHE_TTL_MS = 45000;
-
-  useEffect(() => {
-    if (!position) return;
-
-    const roundedLat = Number(position.lat.toFixed(4));
-    const roundedLng = Number(position.lng.toFixed(4));
-    const cacheKey = `${roundedLat}:${roundedLng}:${radiusMeters}`;
-    const now = Date.now();
-
-    const cached = nearbyCacheRef.current.get(cacheKey);
-    if (cached && now - cached.ts < NEARBY_CACHE_TTL_MS) {
-      setApiPois(cached.items);
-      return;
-    }
-
-    const lastFetch = lastNearbyFetchRef.current;
-    if (lastFetch) {
-      const moved = distanceMeters(
-        { lat: lastFetch.lat, lng: lastFetch.lng },
-        { lat: position.lat, lng: position.lng }
-      );
-      const tooSoon = now - lastFetch.ts < NEARBY_MIN_INTERVAL_MS;
-      const sameRadius = lastFetch.radius === radiusMeters;
-      if (tooSoon && moved < NEARBY_MIN_MOVE_METERS && sameRadius) {
-        return;
-      }
-    }
-
-    if (inFlightNearbyRef.current && lastNearbyKeyRef.current === cacheKey) {
-      return;
-    }
-
-    lastNearbyKeyRef.current = cacheKey;
-    lastNearbyFetchRef.current = { ts: now, lat: position.lat, lng: position.lng, radius: radiusMeters };
-
-    const req = getNearbyPois({ lat: position.lat, lng: position.lng, radiusMeters, limit: 100 })
-      .then((res) => {
-        nearbyCacheRef.current.set(cacheKey, { ts: Date.now(), items: res.items });
-        setApiPois(res.items);
-      })
-      .catch(() => showToast({ title: "Không tải được POI" }))
-      .finally(() => {
-        inFlightNearbyRef.current = null;
-      });
-
-    inFlightNearbyRef.current = req.then(() => undefined);
-  }, [position, radiusMeters, showToast]);
-
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const tourId = params.get("tourId");
-    const tourScope = (params.get("tourScope") ?? "saved") as "mine" | "saved";
-    const tourName = params.get("tourName") ?? undefined;
-
-    if (!tourId) {
-      setTourMeta(null);
-      setTourPois([]);
-      return;
-    }
-
-    setTourMeta({ id: tourId, scope: tourScope, name: tourName });
-    setIsTourLoading(true);
-
-    const loader = tourScope === "mine"
-      ? getMyTour(tourId).then((tour) => (tour?.TourPois ?? []) as UserTourPoi[])
-      : getTourPois(tourId);
-
-    loader
-      .then((items) => {
-        const normalized = (items ?? []).map((item) => normalizeTourPoi(item));
-        normalized.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-        setTourPois(normalized);
-        setSelectedStopIds(new Set());
-      })
-      .catch(() => setTourPois([]))
-      .finally(() => setIsTourLoading(false));
-  }, [location.search]);
-
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const shouldAutoNav = params.get("nav") === "true";
-    if (!shouldAutoNav || autoNavRef.current || !position || tourPois.length === 0) return;
-    autoNavRef.current = true;
-    startMultiRoute(tourPois, tourMeta?.name ?? "Toàn bộ tour");
-  }, [location.search, position, tourPois, tourMeta]);
-
-  const poisWithDistance = useMemo(() => {
-    if (!position) return [];
-    return apiPois
-      .map((p) => {
-        const lat = p.lat ?? p.latitude ?? p.location?.coordinates?.[1] ?? 0;
-        const lng = p.lng ?? p.longitude ?? p.location?.coordinates?.[0] ?? 0;
-        const d = p.distanceMeters ?? p.distance ?? distanceMeters(position, { lat, lng });
-        return {
-          p: { ...p, lat, lng },
-          d,
-        };
-      })
-      .sort((a, b) => (a.d ?? Number.POSITIVE_INFINITY) - (b.d ?? Number.POSITIVE_INFINITY));
-  }, [position, apiPois]);
-
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const toId = params.get('to');
-    if (!toId || !position) return;
-    const targetNearby = poisWithDistance.find((x) => x.p?.id === toId)?.p;
-    const targetTour = tourPois.find((p) => p.id === toId || p.poiId === toId);
-    if (targetNearby) {
-      handleDirections(targetNearby);
-    } else if (targetTour) {
-      resolveTourPoiCoords(targetTour).then((resolved) => {
-        if (resolved.lat && resolved.lng) handleDirections(resolved);
-      });
-    } else {
-      return;
-    }
-    nav('/tourist/map', { replace: true });
-  }, [location.search, poisWithDistance, position, nav, tourPois]);
-
-  const filteredPois = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    return poisWithDistance.filter(({ p }) => {
-      const category = (p.category ?? 'food') as string;
-      if (categoryFilter !== 'all' && category !== categoryFilter) return false;
-      if (!q) return true;
-      return (p.name ?? '').toLowerCase().includes(q);
-    });
-  }, [poisWithDistance, searchQuery, categoryFilter]);
-
-  const filteredTourPois = useMemo(() => {
-    const q = tourQuery.trim().toLowerCase();
-    return tourPois.filter((poi) => {
-      if (!q) return true;
-      const name = (poi.name ?? "").toLowerCase();
-      return name.includes(q) || (poi.poiId ?? poi.id).toLowerCase().includes(q);
-    });
-  }, [tourPois, tourQuery]);
-
-  const addStopCandidates = useMemo(() => {
-    const q = tourQuery.trim().toLowerCase();
-    if (tourPois.length > 0) {
-      return filteredTourPois.map((poi) => ({
-        id: tourPoiKey(poi),
-        name: poi.name ?? "",
-        lat: poi.lat,
-        lng: poi.lng,
-      }));
-    }
-    return filteredPois
-      .filter(({ p }) => (!q ? true : (p.name ?? "").toLowerCase().includes(q)))
-      .map(({ p }) => ({
-        id: p.id,
-        name: p.name ?? "",
-        lat: p.lat,
-        lng: p.lng,
-      }));
-  }, [tourPois.length, filteredTourPois, filteredPois, tourQuery]);
-
-  const selectedStops = useMemo(() => {
-    if (selectedStopIds.size === 0) return [];
-    return addStopCandidates.filter((poi) => selectedStopIds.has(poi.id));
-  }, [addStopCandidates, selectedStopIds]);
-
-  const tourMarkerPois = useMemo(() => {
-    return filteredTourPois
-      .filter((poi) => typeof poi.lat === 'number' && typeof poi.lng === 'number')
-      .map((poi) => ({
-        p: {
-          id: poi.poiId ?? poi.id,
-          name: poi.name,
-          lat: poi.lat,
-          lng: poi.lng,
-        },
-        d: undefined,
-      }));
-  }, [filteredTourPois]);
-
-  const showDirectionsOverlay = Boolean(showDirections && (route || isRouting));
-
-  const toggleBottomNav = () => {
-    bottomNavTouchedRef.current = true;
-    setHideBottomNav((v) => !v);
-  };
-
-
-
-  const speechLang =
-    language === "vi"
-      ? "vi-VN"
-      : language === "ja"
-      ? "ja-JP"
-      : language === "zh"
-      ? "zh-CN"
-      : language === "ko"
-      ? "ko-KR"
-      : "en-US";
-
-  const murfLocale = selectedSpeechLocale || speechLang;
-  const murfVoicesByLocale: Record<string, { female: string; male: string }> = {
-    "vi-VN": { female: "Jacek", male: "Peter" },
-    "en-US": { female: "Natalie", male: "Ken" },
-    "ja-JP": { female: "Hina", male: "Denki" },
-    "ko-KR": { female: "Gyeong", male: "Hwan" },
-    "zh-CN": { female: "Jiao", male: "Tao" },
-    "fr-FR": { female: "Adélie", male: "Guillaume" },
-    "de-DE": { female: "Ruby", male: "Matthias" },
-    "es-ES": { female: "Elvira", male: "Javier" },
-  };
-  const murfVoices = murfVoicesByLocale[murfLocale] ?? murfVoicesByLocale["en-US"];
-
-  useEffect(() => {
-    if (!selectedMurfVoice) {
-      setSelectedMurfVoice(murfVoices[selectedMurfGender]);
-    }
-  }, [murfLocale, murfVoices, selectedMurfGender, selectedMurfVoice]);
-
-  useEffect(() => {
-    setSelectedSpeechLocale(speechLang);
-  }, [speechLang]);
-
-  const speechLocaleOptions = ["vi-VN", "en-US", "ja-JP", "ko-KR", "zh-CN"];
-
-  const routeGeoJson = useMemo(() => {
-    if (!route?.geometry || route.geometry.length === 0) return null;
-    return {
-      type: "Feature",
-      geometry: {
-        type: "LineString",
-        coordinates: route.geometry,
-      },
-      properties: {},
-    } as const;
-  }, [route]);
-
-  useEffect(() => {
-    if (!position) return;
-    const nearby = filteredPois.find(
-      (x) => x.d !== undefined && x.d <= radiusMeters
-    );
-    if (!nearby) return;
-    if (lastTriggerRef.current === nearby.p.id) return;
-    lastTriggerRef.current = nearby.p.id;
-
-    const msg = getPoiShortText(nearby.p);
-    showToast({
-      title: `${t("tourist.map.nearByToast")}${nearby.p.name}`,
-      message: msg,
-    });
-
-    logTrackingEvent({ event: "poi_nearby", poiId: nearby.p.id, meta: { distance: nearby.d } }).catch(
-      () => undefined,
-    );
-
-    if (ttsOn) {
-      playTTS(nearby.p, msg, speechLang, selectedSpeechLocale);
-    }
-  }, [language, filteredPois, position, radiusMeters, showToast, ttsOn, speechLang, selectedSpeechLocale]);
+  const centerToUser = () => setPosition({ lat: 10.7769, lng: 106.6951 });
 
   return (
-    <AppShell showBottomNav={!hideBottomNav}>
-      {/* 1. LAYER MAP (FIXED TO BACKGROUND) */}
-      <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", zIndex: 0 }}>
-        <MapView
-          initialViewState={{
-            longitude: position ? position.lng : 106.6669,
-            latitude: position ? position.lat : 10.7548,
-            zoom: 16,
-          }}
-          mapStyle={theme === 'dark' ? "mapbox://styles/mapbox/navigation-night-v1" : "mapbox://styles/mapbox/streets-v12"}
-          mapboxAccessToken={MAPBOX_TOKEN}
-          style={{ height: "100%", width: "100%", zIndex: 1 }}
-          onClick={() => {
-            setSelectedPoi(null);
-            setViewingPoi(null);
-            setViewingPoiId(null);
-            setIsViewingPoiLoading(false);
-          }}
+    // FIX Ở ĐÂY: Dùng fixed, inset-0 và h-[100dvh] để chốt chặt khung hình, chống scroll trên mobile
+    <div className="fixed inset-0 w-full h-[100dvh] overflow-hidden bg-[#f0fdf4] font-sans text-gray-800">
+      {/* --- LỚP BẢN ĐỒ CHÍNH --- */}
+      <div className="absolute inset-0 z-0">
+        {/* Overlay mờ khi mở Sidebar */}
+        {showSidebar && (
+          <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm transition-opacity duration-300" onClick={() => setShowSidebar(false)} />
+        )}
+
+        {/* Sidebar / BottomSheet */}
+        <div
+          className={`fixed z-50 transition-transform duration-500 ease-in-out shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/40 bg-white/80 backdrop-blur-2xl
+            ${!isMobile 
+              ? `top-4 left-4 bottom-24 w-[380px] rounded-3xl ${showSidebar ? 'translate-x-0' : '-translate-x-[120%]'}` 
+              : `left-0 bottom-0 w-full h-[65vh] rounded-t-3xl ${showSidebar ? 'translate-y-0' : 'translate-y-full'}`
+            }`}
+          style={{ pointerEvents: showSidebar ? 'auto' : 'none' }}
         >
-          {routeGeoJson && (
-            <Source id="route" type="geojson" data={routeGeoJson}>
-              <Layer
-                id="route-line"
-                type="line"
-                paint={{
-                  "line-color": theme === 'dark' ? "#fb7185" : "#f43f5e",
-                  "line-width": 5,
-                  "line-opacity": 0.9,
-                }}
-              />
-            </Source>
-          )}
-          {position && <Marker longitude={position.lng} latitude={position.lat} color="#3b82f6" />}
+          <div className="flex items-center gap-2 px-4 pt-4 pb-0 border-b border-white/50">
+            <TabButton active={sidebarTab === 'list'} tabName="list" onClick={() => setSidebarTab('list')}>Điểm đến</TabButton>
+            <TabButton active={sidebarTab === 'directions'} tabName="directions" onClick={() => setSidebarTab('directions')}>Hành trình</TabButton>
+            <button className="ml-auto p-2 mb-2 bg-white/50 rounded-full hover:bg-white text-gray-500 transition-all shadow-sm" onClick={() => setShowSidebar(false)}>
+              <X size={20} />
+            </button>
+          </div>
 
-          {(tourOnly && tourMarkerPois.length ? tourMarkerPois : filteredPois).map(({ p: poi }) => (
-            <Marker
-              key={poi.id}
-              longitude={poi.lng}
-              latitude={poi.lat}
-              color="#ef4444"
-              onClick={(e: any) => {
-                e.originalEvent.stopPropagation();
-                setSelectedPoi(poi);
-              }}
-            />
-          ))}
+          <div className="p-4 overflow-y-auto h-[calc(100%-70px)] custom-scrollbar">
+            {/* Nội dung danh sách điểm */}
+            {sidebarTab === 'list' && (
+              <div className="animate-in fade-in duration-300">
+                <h3 className="text-lg font-extrabold mb-4 text-emerald-800 flex items-center gap-2">
+                  <MapPin size={20}/> Khám phá quanh đây
+                </h3>
+                {filteredPois.length === 0 && <div className="text-gray-500 italic">Không tìm thấy địa điểm phù hợp.</div>}
+                <ul className="space-y-3">
+                  {filteredPois.map((poi) => (
+                    <li key={poi.id} className="flex gap-4 p-3 bg-white/60 hover:bg-white rounded-2xl shadow-sm border border-white/60 transition-all cursor-pointer hover:shadow-md hover:-translate-y-0.5 group" onClick={() => { setSelectedPoi(poi); setShowSidebar(false); centerToUser(); }}>
+                      <div className="flex items-center justify-center w-12 h-12 bg-emerald-50 rounded-full text-2xl group-hover:scale-110 transition-transform">
+                        {poi.category === 'food' ? '🍜' : poi.category === 'drink' ? '☕' : '📸'}
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-bold text-gray-800 line-clamp-1">{poi.name}</div>
+                        <div className="text-sm text-gray-500 line-clamp-1">{poi.short?.[language] || poi.description || 'Chưa có mô tả'}</div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
-          {selectedPoi && (
-            <Popup
-              longitude={selectedPoi.lng}
-              latitude={selectedPoi.lat}
-              anchor="bottom"
-              onClose={() => setSelectedPoi(null)}
-              closeOnClick={true}
-              closeButton={false}
-              maxWidth="260px"
-              style={{ zIndex: 10 }}
-            >
-              <div className="poiPopup">
-                {(selectedPoi.imageUrl || selectedPoi.image_url) && (
-                  <div className="poiPopupMedia">
-                    <img
-                      src={selectedPoi.imageUrl || selectedPoi.image_url}
-                      alt={selectedPoi.name}
-                    />
+            {/* Nội dung Hành trình */}
+            {sidebarTab === 'directions' && (
+              <div className="animate-in fade-in duration-300">
+                <h3 className="text-lg font-extrabold mb-4 text-emerald-800 flex items-center gap-2">
+                  <RouteIcon size={20}/> Hướng dẫn di chuyển
+                </h3>
+                {!routeData ? (
+                  <div className="flex flex-col items-center justify-center h-48 text-center text-gray-500 bg-white/40 rounded-2xl border border-dashed border-gray-300">
+                    <RouteIcon size={32} className="mb-2 text-gray-300"/>
+                    <p>Chưa có hành trình.<br/>Hãy chọn một địa điểm và bấm "Chỉ đường".</p>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex items-center justify-between p-4 mb-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-2xl shadow-md">
+                      <div>
+                        <div className="text-xs font-medium opacity-80 uppercase tracking-wide">Đến</div>
+                        <div className="text-lg font-bold line-clamp-1">{routeData.destinationName}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-black">{Math.round(routeData.duration / 60)} phút</div>
+                        <div className="text-sm font-medium opacity-90">{(routeData.distance / 1000).toFixed(1)} km</div>
+                      </div>
+                    </div>
+                    <div className="space-y-4 relative before:absolute before:inset-0 before:ml-[15px] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-300 before:to-transparent">
+                      {routeData.legs[0].steps.map((step: any, idx: number) => (
+                        <div key={idx} className="relative flex items-start gap-4 z-10">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-sm border-2 border-emerald-500 text-emerald-600 font-bold text-xs shrink-0 mt-1">
+                            {idx + 1}
+                          </div>
+                          <div className="flex-1 bg-white/70 p-3 rounded-xl shadow-sm border border-white/50">
+                            <p className="text-gray-800 font-medium text-sm">{step.maneuver.instruction}</p>
+                            {step.distance > 0 && <span className="text-xs text-emerald-600 font-semibold mt-1 inline-block">{Math.round(step.distance)}m</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
-                <div className="poiPopupBody">
-                  <div className="poiPopupTitle">{selectedPoi.name}</div>
-                  <div className="poiPopupSub">Nhấn để xem chi tiết hoặc dẫn đường nhanh.</div>
-                  <div className="poiPopupActions">
-                    <button className="btn btnPrimary" onClick={() => openPoiDetails(selectedPoi)}>
-                      Xem chi tiết
-                    </button>
-                    <button className="btn" onClick={() => handleDirections(selectedPoi)}>
-                      Chỉ đường
-                    </button>
-                    <button
-                      className="btn"
-                      disabled={isTtsLoading}
-                      onClick={() => {
-                        const msg = getPoiShortText(selectedPoi);
-                        playTTS(selectedPoi, msg, speechLang, selectedSpeechLocale);
-                      }}
-                    >
-                      {isTtsLoading ? <span className="spinner" aria-hidden="true" /> : "🔊"}
-                      <span>{isTtsLoading ? "Đang tạo" : "Nghe"}</span>
-                    </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* MapView */}
+        <div className="w-full h-full">
+          <MapView
+            initialViewState={{ longitude: position?.lng ?? 106.6951, latitude: position?.lat ?? 10.7769, zoom: 15.5, pitch: 45 }}
+            mapStyle={`mapbox://styles/mapbox/${mapStyle}-v12`}
+            mapboxAccessToken={MAPBOX_TOKEN}
+            style={{ width: "100%", height: "100%" }}
+            onClick={() => { setSelectedPoi(null); setFullDetailsPoi(null); }}
+            attributionControl={false}
+          >
+            {/* Vẽ đường đi (Route) */}
+            {routeData && (
+              <Source id="route" type="geojson" data={routeData.geometry}>
+                <Layer
+                  id="route-line"
+                  type="line"
+                  source="route"
+                  layout={{ 'line-join': 'round', 'line-cap': 'round' }}
+                  paint={{ 'line-color': '#10b981', 'line-width': 6, 'line-opacity': 0.8 }}
+                />
+              </Source>
+            )}
+
+            {/* Vị trí người dùng */}
+            <Marker longitude={position?.lng ?? 106.6951} latitude={position?.lat ?? 10.7769}>
+              <div className="relative flex items-center justify-center w-14 h-14">
+                <div className="absolute w-10 h-10 bg-blue-500 rounded-full opacity-30 animate-ping" />
+                <div className="relative w-6 h-6 bg-blue-600 border-4 border-white rounded-full shadow-xl" />
+              </div>
+            </Marker>
+
+            {/* POI Markers */}
+            {filteredPois.map((poi) => (
+              <Marker
+                key={poi.id}
+                longitude={poi.lng ?? poi.longitude}
+                latitude={poi.lat ?? poi.latitude}
+                anchor="bottom"
+                onClick={(e) => { e.originalEvent.stopPropagation(); setSelectedPoi(poi); }}
+              >
+                <div className={`relative flex flex-col items-center justify-center transition-all duration-300 origin-bottom ${selectedPoi?.id === poi.id ? 'scale-125 z-10' : 'hover:scale-110 cursor-pointer'}`}>
+                  <div className={`flex items-center justify-center w-11 h-11 bg-white/90 backdrop-blur-sm rounded-full shadow-[0_5px_15px_rgba(0,0,0,0.15)] border-2 text-xl ${selectedPoi?.id === poi.id ? 'border-emerald-600 ring-4 ring-emerald-500/30' : 'border-emerald-400'}`}>
+                    {poi.category === 'food' ? '🍜' : poi.category === 'drink' ? '☕' : '📸'}
+                  </div>
+                  <div className="w-2.5 h-2.5 mt-1 bg-emerald-700/80 rounded-full shadow-sm" />
+                </div>
+              </Marker>
+            ))}
+
+            {/* Popup POI */}
+            {selectedPoi && (
+              <Popup
+                longitude={selectedPoi.lng ?? selectedPoi.longitude}
+                latitude={selectedPoi.lat ?? selectedPoi.latitude}
+                anchor="bottom"
+                offset={35}
+                onClose={() => setSelectedPoi(null)}
+                closeOnClick={false}
+                closeButton={false}
+                className="z-40 custom-glass-popup"
+                maxWidth="none"
+              >
+                <div className="flex flex-col w-[320px] md:w-[400px] bg-white/85 backdrop-blur-xl rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-white/60 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                  
+                  {/* Ảnh cover */}
+                  <div className="relative w-full h-40 bg-gray-200">
+                    {selectedPoi.imageUrl ? (
+                      <img src={selectedPoi.imageUrl} alt={selectedPoi.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="flex items-center justify-center w-full h-full text-emerald-800 bg-emerald-100"><MapPin size={36} /></div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                    <button onClick={() => setSelectedPoi(null)} className="absolute top-3 right-3 p-1.5 bg-black/30 hover:bg-black/50 backdrop-blur text-white rounded-full transition-colors"><X size={16}/></button>
+                    <div className="absolute bottom-3 left-4 right-4">
+                      <h3 className="text-xl md:text-2xl font-extrabold text-white leading-tight drop-shadow-lg line-clamp-2">{selectedPoi.name}</h3>
+                    </div>
+                  </div>
+
+                  {/* Body Text */}
+                  <div className="p-5">
+                    <p className="text-sm text-gray-600 mb-4 font-medium line-clamp-3 leading-relaxed">
+                      {selectedPoi.short?.[language] || selectedPoi.description || "Một địa điểm tuyệt vời để khám phá trên hành trình của bạn."}
+                    </p>
+                    
+                    <div className="flex flex-wrap gap-2 text-xs font-semibold text-gray-600 mb-5">
+                      {selectedPoi.category && <span className="bg-emerald-100/80 text-emerald-800 px-3 py-1.5 rounded-xl border border-emerald-200">{selectedPoi.category === 'food' ? 'Ẩm thực' : selectedPoi.category === 'drink' ? 'Cà phê' : 'Tham quan'}</span>}
+                      {selectedPoi.rating && <span className="bg-yellow-100/80 text-yellow-800 px-3 py-1.5 rounded-xl border border-yellow-200 flex items-center gap-1">★ {selectedPoi.rating}</span>}
+                    </div>
+
+                    {/* 3 Nút Actions */}
+                    <div className="grid grid-cols-3 gap-3">
+                      <button 
+                        onClick={() => setFullDetailsPoi(selectedPoi)}
+                        className="group flex flex-col items-center justify-center py-2.5 px-1 bg-white/50 hover:bg-white border border-gray-100 hover:border-blue-200 text-gray-500 hover:text-blue-600 rounded-2xl shadow-sm transition-all duration-300"
+                      >
+                        <div className="mb-1 text-blue-500 group-hover:scale-110 transition-transform"><Info size={22} /></div>
+                        <span className="text-[12px] font-bold tracking-wide">Chi tiết</span>
+                      </button>
+                      
+                      <button 
+                        onClick={() => handleGetDirections(selectedPoi)}
+                        disabled={isRouting}
+                        className="group flex flex-col items-center justify-center py-2.5 px-1 bg-emerald-50/50 hover:bg-emerald-500 border border-emerald-100 text-emerald-600 hover:text-white rounded-2xl shadow-sm transition-all duration-300"
+                      >
+                        <div className="mb-1 group-hover:scale-110 transition-transform">
+                           {isRouting ? <div className="w-[22px] h-[22px] border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" /> : <Navigation size={22} />}
+                        </div>
+                        <span className="text-[12px] font-bold tracking-wide">{isRouting ? 'Đang vẽ...' : 'Chỉ đường'}</span>
+                      </button>
+                      
+                      <button 
+                        disabled={isTtsLoading}
+                        onClick={() => handleListen(selectedPoi)}
+                        className="group flex flex-col items-center justify-center py-2.5 px-1 bg-white/50 hover:bg-white border border-gray-100 hover:border-violet-200 text-gray-500 hover:text-violet-600 rounded-2xl shadow-sm transition-all duration-300"
+                      >
+                        <div className="mb-1 text-violet-500 group-hover:scale-110 transition-transform flex items-center justify-center">
+                          {isTtsLoading ? <div className="w-[22px] h-[22px] border-2 border-violet-500 border-t-transparent rounded-full animate-spin" /> : <Headphones size={22} />}
+                        </div>
+                        <span className="text-[12px] font-bold tracking-wide">{isTtsLoading ? "Đang tải" : "Thuyết minh"}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </Popup>
+            )}
+          </MapView>
+        </div>
+      </div>
+
+      {/* --- LỚP OVERLAY TÌM KIẾM & FLOATING BUTTONS --- */}
+      <div className="absolute inset-0 z-10 pointer-events-none flex flex-col justify-between p-4 sm:p-6">
+        
+        {/* Top: Thanh tìm kiếm & Filter */}
+        <div className="flex flex-col gap-3 w-full max-w-xl mx-auto sm:mt-2 pointer-events-auto">
+          <div className="flex items-center px-5 py-3.5 bg-white/80 backdrop-blur-2xl border border-white/60 shadow-[0_8px_32px_rgba(0,0,0,0.08)] rounded-full transition-all focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-500/40">
+            <Search className="text-emerald-700 mr-3" size={22} />
+            <input
+              type="text"
+              placeholder="Khám phá điểm đến, ẩm thực..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="flex-1 bg-transparent outline-none text-gray-800 placeholder-gray-400 font-medium text-base sm:text-lg"
+            />
+            <button
+              className={`p-2 rounded-full transition-colors ${showSidebar ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}
+              onClick={() => setShowSidebar(!showSidebar)}
+            >
+              <SlidersHorizontal size={18} />
+            </button>
+          </div>
+
+          <div className="flex gap-2.5 overflow-x-auto custom-scrollbar pb-1 px-1">
+            {[
+              { id: 'all', label: 'Tất cả' },
+              { id: 'food', label: 'Ăn uống', icon: '🍜' },
+              { id: 'drink', label: 'Cà phê', icon: '☕' },
+              { id: 'sight', label: 'Tham quan', icon: '📸' }
+            ].map((c) => (
+              <button
+                key={c.id}
+                onClick={() => setCategoryFilter(c.id as any)}
+                className={`flex items-center whitespace-nowrap px-5 py-2 rounded-full text-sm font-bold transition-all duration-300 ${
+                  categoryFilter === c.id
+                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 ring-1 ring-emerald-500 border border-emerald-500'
+                    : 'bg-white/80 backdrop-blur-md text-gray-600 hover:bg-white border border-white/60 shadow-sm'
+                }`}
+              >
+                {c.icon && <span className="mr-1.5 text-base">{c.icon}</span>}
+                {c.label}
+              </button>
+                        ))}
+          </div>
+        </div> {/* <-- thêm dấu đóng div này để kết thúc khối filter chips */}
+
+        {/* Bottom Floating Actions */}
+        <div className={`flex justify-between items-end transition-all duration-300 pointer-events-auto ${isMobile && showSidebar ? 'mb-2' : 'mb-20 sm:mb-24'}`}>
+          <button 
+            onClick={() => setMapStyle(s => s === 'outdoors' ? 'streets' : 'outdoors')}
+            className="flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 bg-white/80 backdrop-blur-xl rounded-full shadow-lg border border-white/60 text-emerald-700 hover:bg-white hover:scale-105 transition-all"
+          >
+            <MapIcon size={24} />
+          </button>
+          <button 
+            onClick={centerToUser}
+            className="flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 bg-white/80 backdrop-blur-xl rounded-full shadow-lg border border-white/60 text-blue-600 hover:bg-white hover:scale-105 transition-all"
+          >
+            <Crosshair size={24} />
+          </button>
+        </div>
+      </div>
+
+      {/* --- MODAL CHI TIẾT MỞ RỘNG (BOTTOM DRAWER) --- */}
+      <div 
+        className={`fixed inset-0 z-[60] flex items-end sm:items-center justify-center transition-all duration-500 ${fullDetailsPoi ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+      >
+        {/* Lớp nền đen mờ */}
+        <div 
+          className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" 
+          onClick={() => setFullDetailsPoi(null)}
+        />
+        
+        {/* Nội dung bảng chi tiết */}
+        <div 
+          className={`relative w-full sm:w-[500px] md:w-[600px] h-[85vh] sm:h-[80vh] bg-white/90 backdrop-blur-2xl rounded-t-3xl sm:rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.3)] border border-white/50 flex flex-col transform transition-transform duration-500 ease-out overflow-hidden ${fullDetailsPoi ? 'translate-y-0 scale-100' : 'translate-y-full sm:translate-y-10 sm:scale-95'}`}
+        >
+          {fullDetailsPoi && (
+            <>
+              {/* Nút đóng */}
+              <button onClick={() => setFullDetailsPoi(null)} className="absolute top-4 right-4 z-10 p-2 bg-black/20 hover:bg-black/40 backdrop-blur-md text-white rounded-full transition-all">
+                <X size={24}/>
+              </button>
+              
+              {/* Ảnh bìa lớn */}
+              <div className="relative w-full h-56 sm:h-64 shrink-0">
+                <img src={fullDetailsPoi.imageUrl || "https://via.placeholder.com/600x400?text=No+Image"} alt={fullDetailsPoi.name} className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+                <div className="absolute bottom-4 left-6 right-6">
+                  <div className="flex gap-2 mb-2">
+                    {fullDetailsPoi.category && <span className="bg-emerald-500 text-white px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider">{fullDetailsPoi.category}</span>}
+                  </div>
+                  <h2 className="text-3xl font-black text-white leading-tight drop-shadow-md">{fullDetailsPoi.name}</h2>
+                </div>
+              </div>
+
+              {/* Nội dung chi tiết cuộn được */}
+              <div className="p-6 overflow-y-auto custom-scrollbar flex-1 bg-gradient-to-b from-white/50 to-transparent">
+                
+                {/* Simulated Address/Time Info */}
+                <div className="flex items-center gap-4 text-sm text-gray-600 mb-6 pb-6 border-b border-gray-200/50">
+                   <div className="flex items-center gap-1.5"><Clock size={16} className="text-emerald-600"/> 07:00 - 22:00</div>
+                   <div className="flex items-center gap-1.5"><MapPin size={16} className="text-emerald-600"/> {fullDetailsPoi.address || "Tọa độ: " + (fullDetailsPoi.lat || "N/A")}</div>
+                </div>
+
+                {/* Giả lập các trường từ bảng poi_content */}
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
+                      <span className="w-1.5 h-6 bg-emerald-500 rounded-full inline-block"></span>
+                      Giới thiệu tổng quan
+                    </h3>
+                    <p className="text-gray-700 leading-relaxed text-base text-justify">
+                      {fullDetailsPoi.description || fullDetailsPoi.short?.[language] || "Đây là thông tin mô tả chi tiết được lấy từ database. Ứng dụng sẽ hiển thị toàn bộ nội dung lịch sử, văn hóa, hoặc các món ăn nổi bật của địa điểm này tại đây."}
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
+                      <span className="w-1.5 h-6 bg-blue-500 rounded-full inline-block"></span>
+                      Ý nghĩa lịch sử & Văn hóa
+                    </h3>
+                    <p className="text-gray-700 leading-relaxed text-base text-justify italic">
+                      "Nội dung này được trích xuất từ bảng <b>poi_content</b>, mô tả chiều sâu văn hóa của địa điểm nhằm mang lại trải nghiệm Tour Guide chân thực nhất cho du khách..."
+                    </p>
                   </div>
                 </div>
               </div>
-            </Popup>
+
+              {/* Nút hành động nổi ở Bottom Drawer */}
+              <div className="p-4 bg-white/90 backdrop-blur-md border-t border-gray-100 flex gap-3 shrink-0">
+                <button 
+                  onClick={() => { setFullDetailsPoi(null); handleGetDirections(fullDetailsPoi); }}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl transition-colors shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2"
+                >
+                  <Navigation size={20}/> Bắt đầu chỉ đường
+                </button>
+                <button 
+                  onClick={() => handleListen(fullDetailsPoi)}
+                  className="px-6 bg-violet-100 hover:bg-violet-200 text-violet-700 font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  <Headphones size={20}/> Nghe
+                </button>
+              </div>
+            </>
           )}
-        </MapView>
-      </div>
-
-      {/* 2. LAYER OVERLAY (FLOATING PANELS) */}
-      <div
-        style={{
-          position: "fixed",
-          top: 80, // Allow space for AppShell's TopBar
-          left: 14,
-          right: 14,
-          bottom: 80, // Allow space for AppShell's BottomNav
-          pointerEvents: "none",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-          zIndex: 10,
-        }}
-      >
-        {/* TOP COMPACT CONTROLS */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          
-          {/* LEFT: Search + Directions Panel */}
-          <div style={{ flex: 1, maxWidth: 320, pointerEvents: "auto" }}>
-            <button
-              className={`mobileSearchToggle ${showSearchPanel ? "mobileSearchToggleOpen" : ""}`}
-              onClick={() => setShowSearchPanel((s) => !s)}
-              aria-label="Mở tìm kiếm"
-              aria-expanded={showSearchPanel}
-            >
-              🔍
-            </button>
-            <div
-              className={`card cardPad searchPanel ${showSearchPanel ? "searchPanelOpen" : ""}`}
-              style={{ marginBottom: 12 }}
-            >
-              <div className="searchBar">
-                <span>🔍</span>
-                <input
-                  className="searchInput"
-                  placeholder="Tìm quán, món ăn, điểm nổi bật..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-              <div style={{ height: 10 }} />
-              <div className="chipRow">
-                {['all', 'food', 'drink', 'sight'].map((c) => (
-                  <button
-                    key={c}
-                    className={`chip ${categoryFilter === c ? 'chipActive' : ''}`}
-                    onClick={() => setCategoryFilter(c as typeof categoryFilter)}
-                  >
-                    {c === 'all' ? 'Tất cả' : c === 'food' ? 'Ăn uống' : c === 'drink' ? 'Trà/cafe' : 'Điểm đến'}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {showDirectionsOverlay && (
-              <DirectionsPanel
-                show={showDirectionsOverlay ? true : false}
-                isMobile={isMobile}
-                route={route}
-                isRouting={isRouting}
-                dirTab={dirTab}
-                setDirTab={setDirTab}
-                sheetExpanded={sheetExpanded}
-                setSheetExpanded={setSheetExpanded}
-                profile={profile}
-                setProfile={setProfile}
-                tourMeta={tourMeta}
-                tourPois={tourPois}
-                filteredTourPois={filteredTourPois}
-                addStopCandidates={addStopCandidates}
-                tourQuery={tourQuery}
-                setTourQuery={setTourQuery}
-                showAddStop={showAddStop}
-                setShowAddStop={setShowAddStop}
-                selectedStopIds={selectedStopIds}
-                setSelectedStopIds={setSelectedStopIds}
-                selectedStops={selectedStops}
-                isMultiRouting={isMultiRouting}
-                startMultiRoute={startMultiRoute}
-                showAllSteps={showAllSteps}
-                setShowAllSteps={setShowAllSteps}
-                hideBottomNav={hideBottomNav}
-                toggleBottomNav={toggleBottomNav}
-                setShowDirections={setShowDirections}
-                showToast={showToast}
-              />
-            )}
-
-          </div>
-
-          <FloatingActions
-            showDirections={showDirections}
-            onToggleDirections={() => setShowDirections((s) => !s)}
-            showPoiList={showPoiList}
-            onTogglePoiList={() => setShowPoiList((s) => !s)}
-            ttsOn={ttsOn}
-            onToggleTts={() => setTtsOn((v) => !v)}
-            isTtsLoading={isTtsLoading}
-            showTtsSettings={showTtsSettings}
-            onToggleTtsSettings={() => setShowTtsSettings((s) => !s)}
-            selectedMurfGender={selectedMurfGender}
-            onChangeMurfGender={(nextGender) => {
-              setSelectedMurfGender(nextGender);
-              setSelectedMurfVoice(murfVoices[nextGender]);
-            }}
-            selectedMurfVoice={selectedMurfVoice}
-            onChangeMurfVoice={setSelectedMurfVoice}
-            murfVoices={murfVoices}
-            selectedSpeechLocale={selectedSpeechLocale}
-            onChangeSpeechLocale={setSelectedSpeechLocale}
-            speechLocaleOptions={speechLocaleOptions}
-            ttsRate={ttsRate}
-            onChangeTtsRate={setTtsRate}
-          />
         </div>
-
       </div>
 
-      <DirectionsTopbar
-        show={Boolean(isMobile && showDirectionsOverlay)}
-        isTopbarCollapsed={isTopbarCollapsed}
-        setIsTopbarCollapsed={setIsTopbarCollapsed}
-        position={position ?? null}
-        routeTargetLabel={routeTargetLabel}
-      />
-
-      {showPoiList && (
-        <PoiListSheet
-          items={filteredPois}
-          onClose={() => setShowPoiList(false)}
-          onOpenPoi={openPoiDetails}
-        />
+      {/* BottomNav */}
+      {!(isMobile && showSidebar) && (
+        <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-auto">
+          <BottomNav />
+        </div>
       )}
 
-      <PoiDetailsModal
-        open={Boolean(viewingPoiId)}
-        poi={viewingPoi}
-        loading={isViewingPoiLoading}
-        onClose={() => {
-          setViewingPoi(null);
-          setViewingPoiId(null);
-          setIsViewingPoiLoading(false);
-        }}
-      />
-    </AppShell>
+      {/* CSS Tuỳ chỉnh */}
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(16, 185, 129, 0.4); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-glass-popup .mapboxgl-popup-content {
+          background: transparent !important;
+          padding: 0 !important;
+          box-shadow: none !important;
+        }
+        .custom-glass-popup .mapboxgl-popup-tip {
+          border-top-color: rgba(255, 255, 255, 0.85) !important;
+          backdrop-filter: blur(16px);
+        }
+      `}</style>
+    </div>
   );
 }
