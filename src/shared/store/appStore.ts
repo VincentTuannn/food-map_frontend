@@ -9,7 +9,47 @@ export type GeoPoint = {
   lng: number
 }
 
+export interface ActiveTourForMap {
+  id: string;
+  name: string;
+  stops: TourStopI[];
+}
+
+interface TourStopI {
+  id: string;
+  name: string;
+  emoji: string;
+  address: string;
+  description?: string;
+  audioUrl?: string;
+  audioDuration?: number;
+  status: "visited" | "current" | "upcoming";
+  order: number;
+  lat?: number;
+  lng?: number;
+}
+ 
+interface ActiveTourI {
+  id: string;
+  name: string;
+  stops: TourStopI[];
+}
+ 
+// Chỉ định nghĩa phần bổ sung — merge vào store thực tế của bạn
+interface TourMapSlice {
+  activeTourForMap: ActiveTourI | null;
+  setActiveTourForMap: (tour: ActiveTourI) => void;
+  clearActiveTourForMap: () => void;
+}
+ 
+// Export để dùng type-check
+export type { TourStopI as TourStopType, ActiveTourI as ActiveTourType };
+
 export type AppState = {
+    // --- Tour Map Slice ---
+    activeTourForMap: ActiveTourI | null;
+    setActiveTourForMap: (tour: ActiveTourI | null) => void;
+    clearActiveTourForMap: () => void;
   language: Language
   setLanguage: (lang: Language) => void
 
@@ -56,6 +96,9 @@ function savePrefs(prefs: { language: Language; theme: ThemeMode; userToken?: st
 }
 
 export const useAppStore = create<AppState>((set) => ({
+    activeTourForMap: null,
+    setActiveTourForMap: (tour) => set({ activeTourForMap: tour }),
+    clearActiveTourForMap: () => set({ activeTourForMap: null }),
   language: loadPrefs().language ?? 'vi',
   setLanguage: (language) =>
     set((s) => {
@@ -95,5 +138,6 @@ export const useAppStore = create<AppState>((set) => ({
 
   toast: undefined,
   showToast: (toast) => set({ toast }),
+
 }))
 

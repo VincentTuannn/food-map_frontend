@@ -1,14 +1,20 @@
 import React, { useEffect, useState, useRef, useMemo } from "react";
+import { Route, useLocation } from 'react-router-dom';
+import { ChevronDown, ChevronUp, Headphones, MapPin, Coffee, Trash2, Route as RouteIcon, Navigation2, ArrowRightCircle } from 'lucide-react';
+import { useT } from '../../shared/i18n/useT';
 import MapView, { Marker, Popup, Source, Layer } from "react-map-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { 
-  Search, MapPin, Navigation, Info, Headphones, Crosshair, 
-  Map as MapIcon, SlidersHorizontal, X, Clock, Route as RouteIcon 
+  Search, Navigation, Info, Crosshair, 
+  Map as MapIcon, SlidersHorizontal, X, Clock
 } from "lucide-react";
 import { useAppStore } from "../../shared/store/appStore";
 import { getNearbyPois } from "../../api/services/location";
 import { getCachedPoiContent, getPoiContent } from "../../api/services/content";
 import BottomNav from "../../shared/ui/BottomNav";
+import { useTranslation } from 'react-i18next'
+import i18n from '../../shared/i18n/i18n'
+import { TourDirectionsSidebar } from "./components/TourDirectionsSidebar";
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || "YOUR_TOKEN_HERE";
 
@@ -43,6 +49,10 @@ function TabButton({ active, tabName, onClick, children }: { active?: boolean; t
 }
 
 export function MapPage() {
+  const { t } = useTranslation()
+  const location = useLocation();
+  const state = location.state;
+  console.log("MapPage received state:", state);
   // Zustand state
   const position = useAppStore((s) => s.position);
   const setPosition = useAppStore((s) => s.setPosition);
@@ -65,6 +75,8 @@ export function MapPage() {
   const [routeData, setRouteData] = useState<any>(null);
   const [isRouting, setIsRouting] = useState(false);
 
+  const [expandedStopIndex, setExpandedStopIndex] = useState<number>(-1);
+
   // Responsive state
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
@@ -82,7 +94,7 @@ export function MapPage() {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const seenTtsKeysRef = useRef<Set<string>>(new Set());
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
-
+  const [expandedPoiIndex, setExpandedPoiIndex] = useState<number | null>(null);
   useEffect(() => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       const populateVoices = () => setVoices(window.speechSynthesis.getVoices());
@@ -91,6 +103,29 @@ export function MapPage() {
     }
   }, []);
 
+  const [tourPoints, setTourPoints] = useState<any[]>([]);
+  useEffect(() => {
+    let points = null;
+    if (location.state?.listPoints) {
+      points = location.state.listPoints;
+      setShowSidebar(true);
+      setSidebarTab('directions');
+      window.history.replaceState({}, document.title);
+      sessionStorage.setItem('activeTourRoute', JSON.stringify(points));
+    } else {
+      const saved = sessionStorage.getItem('activeTourRoute');
+      if (saved) points = JSON.parse(saved);
+    }
+    if (Array.isArray(points)) setTourPoints(points);
+  }, [location.state]);
+
+  // Xóa hành trình (không xóa tour)
+  const handleEndTour = () => {
+    setTourPoints([]);
+    sessionStorage.removeItem('activeTourRoute');
+    setSidebarTab('list');
+    setShowSidebar(false);
+  };
   // --- Real POI Data ---
   const [apiPois, setApiPois] = useState<any[]>([]);
   useEffect(() => {
@@ -169,31 +204,30 @@ export function MapPage() {
   // --- Chức năng Chỉ đường ---
   const handleGetDirections = async (destPoi: any) => {
     if (!position) {
-      showToast({ title: "Chưa xác định được vị trí của bạn!" });
+      showToast({ title: t('tourist.map.noGps', 'Chưa xác định được vị trí của bạn!') });
       return;
     }
-    setSelectedPoi(null); 
+    setSelectedPoi(null);
     setIsRouting(true);
     try {
       const destLng = destPoi.lng ?? destPoi.longitude;
       const destLat = destPoi.lat ?? destPoi.latitude;
       const url = `https://api.mapbox.com/directions/v5/mapbox/walking/${position.lng},${position.lat};${destLng},${destLat}?steps=true&geometries=geojson&language=vi&access_token=${MAPBOX_TOKEN}`;
-      
       const response = await fetch(url);
       const data = await response.json();
-      
       if (data.routes && data.routes.length > 0) {
         setRouteData({
           ...data.routes[0],
           destinationName: destPoi.name
         });
+        setTourPoints([]); // Xóa lộ trình tour khi chỉ đường đơn
         setSidebarTab('directions');
         setShowSidebar(true);
       } else {
-        showToast({ title: "Không tìm thấy tuyến đường phù hợp" });
+        showToast({ title: t('tourist.map.noRoute', 'Không tìm thấy tuyến đường phù hợp') });
       }
     } catch (error) {
-      showToast({ title: "Lỗi khi tải dữ liệu chỉ đường" });
+      showToast({ title: t('tourist.map.routeError', 'Lỗi khi tải dữ liệu chỉ đường') });
     } finally {
       setIsRouting(false);
     }
@@ -251,46 +285,15 @@ export function MapPage() {
                 </ul>
               </div>
             )}
-
-            {/* Nội dung Hành trình */}
             {sidebarTab === 'directions' && (
-              <div className="animate-in fade-in duration-300">
-                <h3 className="text-lg font-extrabold mb-4 text-emerald-800 flex items-center gap-2">
-                  <RouteIcon size={20}/> Hướng dẫn di chuyển
-                </h3>
-                {!routeData ? (
-                  <div className="flex flex-col items-center justify-center h-48 text-center text-gray-500 bg-white/40 rounded-2xl border border-dashed border-gray-300">
-                    <RouteIcon size={32} className="mb-2 text-gray-300"/>
-                    <p>Chưa có hành trình.<br/>Hãy chọn một địa điểm và bấm "Chỉ đường".</p>
-                  </div>
-                ) : (
-                  <div>
-                    <div className="flex items-center justify-between p-4 mb-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-2xl shadow-md">
-                      <div>
-                        <div className="text-xs font-medium opacity-80 uppercase tracking-wide">Đến</div>
-                        <div className="text-lg font-bold line-clamp-1">{routeData.destinationName}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-black">{Math.round(routeData.duration / 60)} phút</div>
-                        <div className="text-sm font-medium opacity-90">{(routeData.distance / 1000).toFixed(1)} km</div>
-                      </div>
-                    </div>
-                    <div className="space-y-4 relative before:absolute before:inset-0 before:ml-[15px] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-300 before:to-transparent">
-                      {routeData.legs[0].steps.map((step: any, idx: number) => (
-                        <div key={idx} className="relative flex items-start gap-4 z-10">
-                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-sm border-2 border-emerald-500 text-emerald-600 font-bold text-xs shrink-0 mt-1">
-                            {idx + 1}
-                          </div>
-                          <div className="flex-1 bg-white/70 p-3 rounded-xl shadow-sm border border-white/50">
-                            <p className="text-gray-800 font-medium text-sm">{step.maneuver.instruction}</p>
-                            {step.distance > 0 && <span className="text-xs text-emerald-600 font-semibold mt-1 inline-block">{Math.round(step.distance)}m</span>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+              <TourDirectionsSidebar
+                tourPoints={tourPoints}
+                routeData={routeData}
+                isTtsLoading={isTtsLoading}
+                onListen={handleListen}
+                onEndTour={handleEndTour}
+                t={t}
+              />
             )}
           </div>
         </div>
@@ -447,7 +450,7 @@ export function MapPage() {
           </div>
 
           <div className="flex gap-2.5 overflow-x-auto custom-scrollbar pb-1 px-1">
-            {[
+            {[ 
               { id: 'all', label: 'Tất cả' },
               { id: 'food', label: 'Ăn uống', icon: '🍜' },
               { id: 'drink', label: 'Cà phê', icon: '☕' },
@@ -467,10 +470,11 @@ export function MapPage() {
               </button>
                         ))}
           </div>
-        </div> {/* <-- thêm dấu đóng div này để kết thúc khối filter chips */}
+        </div>
 
         {/* Bottom Floating Actions */}
-        <div className={`flex justify-between items-end transition-all duration-300 pointer-events-auto ${isMobile && showSidebar ? 'mb-2' : 'mb-20 sm:mb-24'}`}>
+        {!showSidebar && (
+          <div className={`flex justify-between items-end transition-all duration-300 ${isMobile && showSidebar ? 'mb-2' : 'mb-20 sm:mb-24'}`} style={{ pointerEvents: 'auto' }}>
           <button 
             onClick={() => setMapStyle(s => s === 'outdoors' ? 'streets' : 'outdoors')}
             className="flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 bg-white/80 backdrop-blur-xl rounded-full shadow-lg border border-white/60 text-emerald-700 hover:bg-white hover:scale-105 transition-all"
@@ -484,6 +488,7 @@ export function MapPage() {
             <Crosshair size={24} />
           </button>
         </div>
+        )}
       </div>
 
       {/* --- MODAL CHI TIẾT MỞ RỘNG (BOTTOM DRAWER) --- */}
