@@ -11,9 +11,8 @@ import {
 } from '../../api/services/userTours';
 import { getSavedTours } from '../../api/services/userSavedTours';
 import {
-  Plus, Map, Bookmark, Share2, Eye, Lock, Globe, Link2, Star, Users, Calendar, BookOpen, Sparkles, ChevronRight, ChevronDown, Share, BadgeCheck, AudioLines, Ticket, Languages, Route, Search
+  Plus, Map, Bookmark, Lock, Globe, Link2, Calendar, BookOpen,  Share, Search
 } from 'lucide-react';
-
 
 export default function RoutePage() {
   const nav = useNavigate();

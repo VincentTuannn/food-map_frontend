@@ -12,14 +12,17 @@
  *   - Import <SidebarPanel> và truyền props
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import {
-  MapPin, Headphones, Navigation, Info, X, Star,
+  MapPin, Headphones, Navigation, X, Star,
   Utensils, Coffee, Camera, Ticket, Clock, ArrowUp,
   CornerUpRight, CornerUpLeft, RotateCw, Route as RouteIcon,
   ChevronDown, ChevronLeft, Trash2, AlertCircle,
   Ticket as VoucherIcon, Share2, Phone, Globe, Heart,
 } from 'lucide-react'
+
+import { apiFetch } from '../../../api/http';
+import { getPoiContent } from '../../../api/services/content';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -81,6 +84,11 @@ export interface SidebarPanelProps {
   onVoucher?: (poi: SidebarPoi) => void
   onShare?: (poi: SidebarPoi) => void
   t?: (key: string, fallback: string) => string
+  centerToUser: () => void
+  // Responsive
+  isMobile?: boolean
+  // Empty state POI list
+  filteredPois?: SidebarPoi[]
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -136,7 +144,7 @@ function PoiHeroImage({ poi, onClose }: { poi: SidebarPoi; onClose?: () => void 
   const catMeta = getCategoryMeta(poi.category)
 
   return (
-    <div className="relative w-full h-[180px] shrink-0 overflow-hidden">
+    <div className="relative w-full h-[180px] shrink-0 overflow-hidden rounded-t-2xl">
       {poi.imageUrl && !imgError ? (
         <img
           src={poi.imageUrl}
@@ -193,6 +201,7 @@ function PoiHeroImage({ poi, onClose }: { poi: SidebarPoi; onClose?: () => void 
 
 // ─── POI Detail Panel (thay thế Popup) ─────────────────────────────────────────
 
+
 function POIDetailPanel({
   poi, language = 'vi', isTtsLoading = false, isRouting = false,
   onClose, onListen, onGetDirections, onVoucher, onShare,
@@ -207,37 +216,60 @@ function POIDetailPanel({
   onVoucher?: (poi: SidebarPoi) => void
   onShare?: (poi: SidebarPoi) => void
 }) {
-  const [liked, setLiked] = useState(false)
-  const catMeta = getCategoryMeta(poi.category)
-  const description = poi.short?.[language] ?? poi.description
+  const [liked, setLiked] = useState(false);
+  const [poiData, setPoiData] = useState<SidebarPoi | null>(poi);
+  const [description, setDescription] = useState<string | undefined>(poi.short?.[language] ?? poi.description);
+
+  // Fetch POI details and content when POI or language changes
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchPoiAndContent() {
+      try {
+        // Fetch POI details
+        const poiRes = await apiFetch(`/pois/${poi.id}`);
+        if (isMounted && poiRes && typeof poiRes === 'object' && 'data' in poiRes && poiRes.data) {
+          setPoiData({ ...poi, ...poiRes.data });
+        }
+        // Fetch POI content/description
+        const contentRes = await getPoiContent(poi.id as string, language ?? '');
+        if (isMounted && contentRes && typeof contentRes === 'object' && 'data' in contentRes && contentRes.data && typeof contentRes.data === 'object' && 'description' in contentRes.data && contentRes.data.description) {
+          setDescription(contentRes.data.description);
+        }
+      } catch {
+        // fallback to initial props
+        if (isMounted) {
+          setPoiData(poi);
+          setDescription(poi.short?.[language] ?? poi.description);
+        }
+      }
+    }
+    fetchPoiAndContent();
+    return () => { isMounted = false; };
+  }, [poi.id, language]);
 
   return (
-    <div
-      className="flex flex-col h-full"
-      style={{ animation: 'sidebarSlideIn 0.3s cubic-bezier(0.22,1,0.36,1) both' }}
-    >
+    <div className="flex flex-col h-full" style={{ animation: 'sidebarSlideIn 0.3s cubic-bezier(0.22,1,0.36,1) both' }}>
       {/* Hero */}
-      <PoiHeroImage poi={poi} onClose={onClose} />
+      <PoiHeroImage poi={poiData || poi} onClose={onClose} />
 
       {/* Scrollable body */}
       <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-
         {/* Quick stats strip */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-white">
-          {poi.rating && (
+          {poiData?.rating && (
             <div className="flex items-center gap-1">
               <Star size={13} className="text-amber-400 fill-amber-400" />
-              <span className="text-[13px] font-extrabold text-gray-800">{poi.rating}</span>
+              <span className="text-[13px] font-extrabold text-gray-800">{poiData.rating}</span>
             </div>
           )}
-          {poi.hours && (
+          {poiData?.hours && (
             <div className="flex items-center gap-1 text-[11px] text-emerald-600 font-semibold">
               <Clock size={11} />
-              <span>{poi.hours}</span>
+              <span>{poiData.hours}</span>
             </div>
           )}
-          {poi.priceRange && (
-            <div className="text-[11px] text-gray-500 font-medium">{poi.priceRange}</div>
+          {poiData?.priceRange && (
+            <div className="text-[11px] text-gray-500 font-medium">{poiData.priceRange}</div>
           )}
           <button
             onClick={() => setLiked(l => !l)}
@@ -259,30 +291,30 @@ function POIDetailPanel({
         )}
 
         {/* Info rows */}
-        {(poi.address || poi.phone || poi.website) && (
+        {(poiData?.address || poiData?.phone || poiData?.website) && (
           <div className="px-4 py-3 border-b border-gray-100 space-y-2.5">
-            {poi.address && (
+            {poiData?.address && (
               <div className="flex items-start gap-3">
                 <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center shrink-0 mt-0.5">
                   <MapPin size={13} className="text-gray-500" />
                 </div>
-                <span className="text-[12px] text-gray-700 leading-relaxed flex-1">{poi.address}</span>
+                <span className="text-[12px] text-gray-700 leading-relaxed flex-1">{poiData.address}</span>
               </div>
             )}
-            {poi.phone && (
+            {poiData?.phone && (
               <div className="flex items-center gap-3">
                 <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
                   <Phone size={13} className="text-gray-500" />
                 </div>
-                <a href={`tel:${poi.phone}`} className="text-[12px] text-blue-600 font-medium hover:underline">{poi.phone}</a>
+                <a href={`tel:${poiData.phone}`} className="text-[12px] text-blue-600 font-medium hover:underline">{poiData.phone}</a>
               </div>
             )}
-            {poi.website && (
+            {poiData?.website && (
               <div className="flex items-center gap-3">
                 <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
                   <Globe size={13} className="text-gray-500" />
                 </div>
-                <a href={poi.website} target="_blank" rel="noopener noreferrer" className="text-[12px] text-blue-600 font-medium hover:underline truncate">{poi.website}</a>
+                <a href={poiData.website} target="_blank" rel="noopener noreferrer" className="text-[12px] text-blue-600 font-medium hover:underline truncate">{poiData.website}</a>
               </div>
             )}
           </div>
@@ -290,12 +322,11 @@ function POIDetailPanel({
       </div>
 
       {/* ── Action buttons ── */}
-      <div className="shrink-0 p-3 bg-white border-t border-gray-100">
-
+      <div className="shrink-0 p-3 bg-white border-t border-gray-100 rounded-b-2xl overflow-hidden">
         {/* Primary: Directions + Listen */}
         <div className="flex gap-2 mb-2">
           <button
-            onClick={() => onGetDirections?.(poi)}
+            onClick={() => onGetDirections?.(poiData || poi)}
             disabled={isRouting}
             className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-[13px] transition-all active:scale-95 shadow-md disabled:opacity-60"
             style={{
@@ -312,7 +343,7 @@ function POIDetailPanel({
           </button>
 
           <button
-            onClick={() => onListen?.(poi)}
+            onClick={() => onListen?.(poiData || poi)}
             disabled={isTtsLoading}
             className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-[13px] transition-all active:scale-95 border disabled:opacity-60"
             style={{
@@ -332,14 +363,14 @@ function POIDetailPanel({
         {/* Secondary: Voucher + Share */}
         <div className="flex gap-2">
           <button
-            onClick={() => onVoucher?.(poi)}
+            onClick={() => onVoucher?.(poiData || poi)}
             className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-semibold text-[12px] transition-all active:scale-95 bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
           >
             <VoucherIcon size={13} />
             Nhận Voucher
           </button>
           <button
-            onClick={() => onShare?.(poi)}
+            onClick={() => onShare?.(poiData || poi)}
             className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-semibold text-[12px] transition-all active:scale-95 bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200"
           >
             <Share2 size={13} />
@@ -348,13 +379,13 @@ function POIDetailPanel({
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 // ─── Tour Stop Card ─────────────────────────────────────────────────────────────
 
 function TourStopCard({
-  poi, index, total, isExpanded, isVisible, onToggle, onListen, isTtsLoading,
+  poi, index, isExpanded, isVisible, onToggle, onListen, isTtsLoading,
 }: {
   poi: TourStop; index: number; total: number
   isExpanded: boolean; isVisible: boolean
@@ -552,13 +583,15 @@ export function SidebarPanel({
   isTtsLoading = false, isRouting = false,
   onClose, onListen, onGetDirections, onEndTour, onVoucher, onShare,
   t = (_k, fb) => fb,
+  isMobile = false,
+  filteredPois = [],
 }: SidebarPanelProps) {
 
   const [expandedStop,   setExpandedStop]   = useState<number>(0)
   const [activeStep,     setActiveStep]     = useState<number>(0)
   const [stopsVisible,   setStopsVisible]   = useState(false)
   const [stepsVisible,   setStepsVisible]   = useState(false)
-
+const [emptyTab, setEmptyTab] = useState<'nearby'|'directions'>('nearby');
   useEffect(() => {
     const id = setTimeout(() => { setStopsVisible(true); setStepsVisible(true) }, 60)
     return () => clearTimeout(id)
@@ -569,28 +602,58 @@ export function SidebarPanel({
   const steps = routeData?.legs?.[0]?.steps ?? []
 
   // ── POI detail mode ──────────────────────────────────────────────────────────
-
   if (mode === 'poi' && selectedPoi) {
     return (
-      <POIDetailPanel
-        poi={selectedPoi}
-        language={language}
-        isTtsLoading={isTtsLoading}
-        isRouting={isRouting}
-        onClose={onClose}
-        onListen={onListen}
-        onGetDirections={onGetDirections}
-        onVoucher={onVoucher}
-        onShare={onShare}
-      />
+      <div className="relative flex flex-col h-full" style={{ animation: 'sidebarSlideIn 0.3s ease both' }}>
+        {/* Responsive top bar/close */}
+        {isMobile ? (
+          <div className="w-full h-2.5 flex items-center justify-center mb-1">
+            <div className="w-12 h-1.5 bg-gray-300 rounded-full mt-2 mb-1" />
+          </div>
+        ) : (
+          <button
+            className="absolute top-3 right-3 z-20 w-9 h-9 flex items-center justify-center bg-white/80 hover:bg-white text-gray-500 rounded-full shadow-sm transition-all"
+            onClick={onClose}
+            aria-label="Đóng sidebar"
+          >
+            <X size={22} />
+          </button>
+        )}
+        <div className="flex-1 min-h-0 flex flex-col">
+          <POIDetailPanel
+            poi={selectedPoi}
+            language={language}
+            isTtsLoading={isTtsLoading}
+            isRouting={isRouting}
+            onClose={onClose}
+            onListen={onListen}
+            onGetDirections={onGetDirections}
+            onVoucher={onVoucher}
+            onShare={onShare}
+          />
+        </div>
+      </div>
     )
   }
 
   // ── Tour stops mode ──────────────────────────────────────────────────────────
-
   if (mode === 'tour' && tourPoints.length > 0) {
     return (
-      <div className="flex flex-col h-full" style={{ animation: 'sidebarSlideIn 0.3s ease both' }}>
+      <div className="relative flex flex-col h-full" style={{ animation: 'sidebarSlideIn 0.3s ease both' }}>
+        {/* Responsive top bar/close */}
+        {isMobile ? (
+          <div className="w-full h-2.5 flex items-center justify-center mb-1">
+            <div className="w-12 h-1.5 bg-gray-300 rounded-full mt-2 mb-1" />
+          </div>
+        ) : (
+          <button
+            className="absolute top-3 right-3 z-20 w-9 h-9 flex items-center justify-center bg-white/80 hover:bg-white text-gray-500 rounded-full shadow-sm transition-all"
+            onClick={onClose}
+            aria-label="Đóng sidebar"
+          >
+            <X size={22} />
+          </button>
+        )}
 
         {/* Header */}
         <div className="shrink-0 px-4 py-3 border-b border-gray-100 flex items-center gap-2">
@@ -644,10 +707,23 @@ export function SidebarPanel({
   }
 
   // ── Directions mode ──────────────────────────────────────────────────────────
-
   if (mode === 'directions' && routeData && steps.length > 0) {
     return (
-      <div className="flex flex-col h-full" style={{ animation: 'sidebarSlideIn 0.3s ease both' }}>
+      <div className="relative flex flex-col h-full" style={{ animation: 'sidebarSlideIn 0.3s ease both' }}>
+        {/* Responsive top bar/close */}
+        {isMobile ? (
+          <div className="w-full h-2.5 flex items-center justify-center mb-1">
+            <div className="w-12 h-1.5 bg-gray-300 rounded-full mt-2 mb-1" />
+          </div>
+        ) : (
+          <button
+            className="absolute top-3 right-3 z-20 w-9 h-9 flex items-center justify-center bg-white/80 hover:bg-white text-gray-500 rounded-full shadow-sm transition-all"
+            onClick={onClose}
+            aria-label="Đóng sidebar"
+          >
+            <X size={22} />
+          </button>
+        )}
 
         {/* Summary card */}
         <div
@@ -731,17 +807,86 @@ export function SidebarPanel({
     )
   }
 
-  // ── Empty state ──────────────────────────────────────────────────────────────
-
+  // ── Empty state with tabs ───────────────────────────────────────────────────
   return (
-    <div className="h-full flex flex-col items-center justify-center text-center px-6 gap-3 py-12">
-      <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-1">
-        <AlertCircle size={26} className="text-gray-300" />
+    <div className="relative flex flex-col h-full" style={{ animation: 'sidebarSlideIn 0.3s ease both' }}>
+        {/* Responsive top bar/close */}
+        {isMobile ? (
+          <div className="w-full h-2.5 flex items-center justify-center mb-1">
+            <div className="w-12 h-1.5 bg-gray-300 rounded-full mt-2 mb-1" />
+          </div>
+        ) : (
+          <button
+            className="absolute top-3 right-3 z-20 w-9 h-9 flex items-center justify-center bg-white/80 hover:bg-white text-gray-500 rounded-full shadow-sm transition-all"
+            onClick={onClose}
+            aria-label="Đóng sidebar"
+          >
+            <X size={22} />
+          </button>
+        )}
+
+      {/* Tabs */}
+      <div className="shrink-0 px-5 py-3">
+        <div className="flex bg-gray-200/60 p-1 rounded-xl relative shadow-inner">
+          {/* Cục highlight trượt */}
+          <div 
+            className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white rounded-lg shadow-sm transition-transform duration-300 ease-out"
+            style={{ transform: emptyTab === 'nearby' ? 'translateX(0)' : 'translateX(100%)' }}
+          />
+          <button
+            className={`flex-1 py-2.5 rounded-lg font-bold text-[13px] transition-colors z-10 flex items-center justify-center gap-2 ${emptyTab === 'nearby' ? 'text-emerald-700' : 'text-gray-500 hover:text-gray-700'}`}
+            onClick={() => setEmptyTab('nearby')}
+          >
+            <MapPin size={16} /> Gần tôi
+          </button>
+          <button
+            className={`flex-1 py-2.5 rounded-lg font-bold text-[13px] transition-colors z-10 flex items-center justify-center gap-2 ${emptyTab === 'directions' ? 'text-emerald-700' : 'text-gray-500 hover:text-gray-700'}`}
+            onClick={() => setEmptyTab('directions')}
+          >
+            <Navigation size={16} /> Chỉ đường
+          </button>
+        </div>
       </div>
-      <p className="text-[14px] font-bold text-gray-500">Chưa có nội dung</p>
-      <p className="text-[12px] text-gray-400 leading-relaxed">
-        Chọn một địa điểm trên bản đồ để xem thông tin, hoặc bắt đầu một tour để xem lộ trình.
-      </p>
+
+      {/* Tab content */}
+      <div className="flex-1 overflow-y-auto px-4 pb-6 custom-scrollbar">
+        {emptyTab === 'nearby' && (
+          <>
+            <h3 className="text-lg font-extrabold mb-4 text-emerald-800 flex items-center gap-2 mt-2">
+              <MapPin size={20}/> Địa điểm gần bạn
+            </h3>
+            {(!Array.isArray(filteredPois) || filteredPois.length === 0) ? (
+              <div className="text-gray-500 italic text-center mt-8 flex flex-col items-center gap-2">
+                <AlertCircle size={32} className="text-gray-300 mx-auto" />
+                Không tìm thấy địa điểm phù hợp quanh bạn.
+              </div>
+            ) : (
+              <ul className="space-y-3 animate-in fade-in duration-300">
+                {filteredPois.map((poi) => (
+                  <li key={poi.id} className="flex gap-4 p-3 bg-white/80 hover:bg-white rounded-2xl shadow-sm border border-white/60 transition-all cursor-pointer hover:shadow-md hover:-translate-y-0.5 group" >
+                    <div className="flex items-center justify-center w-12 h-12 bg-emerald-50 rounded-full text-2xl group-hover:scale-110 transition-transform">
+                      {poi.category === 'food' ? '🍜' : poi.category === 'drink' ? '☕' : '📸'}
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-bold text-gray-800 line-clamp-1">{poi.name}</div>
+                      <div className="text-sm text-gray-500 line-clamp-1">{poi.short?.[language] || poi.description || 'Chưa có mô tả'}</div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+        {emptyTab === 'directions' && (
+          <div className="flex flex-col items-center justify-center h-full text-center gap-3 mt-12">
+            <Navigation size={36} className="text-emerald-400 mb-2" />
+            <p className="text-[15px] font-bold text-gray-600">Chưa có địa điểm chỉ đường</p>
+            <p className="text-[13px] text-gray-400 leading-relaxed max-w-xs mx-auto">
+              Hãy chọn một địa điểm trên bản đồ hoặc bắt đầu một tour để xem lộ trình chỉ đường tại đây.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

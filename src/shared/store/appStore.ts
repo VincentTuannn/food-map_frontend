@@ -35,13 +35,6 @@ interface ActiveTourI {
   stops: TourStopI[];
 }
  
-// Chỉ định nghĩa phần bổ sung — merge vào store thực tế của bạn
-interface TourMapSlice {
-  activeTourForMap: ActiveTourI | null;
-  setActiveTourForMap: (tour: ActiveTourI) => void;
-  clearActiveTourForMap: () => void;
-}
- 
 // Export để dùng type-check
 export type { TourStopI as TourStopType, ActiveTourI as ActiveTourType };
 

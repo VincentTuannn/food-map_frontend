@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getMerchantAnalytics, type MerchantAnalytics, type HeatmapPoint } from '../../../api/services/analytics'
+import { getMerchantAnalytics, type MerchantAnalytics } from '../../../api/services/analytics'
 import { getPoiById } from '../../../api/services/poi'
 
 export function AnalyticsSection() {
@@ -74,7 +74,7 @@ export function AnalyticsSection() {
                 width: '100%',
                 overflowX: window.innerWidth <= 600 ? 'auto' : 'visible',
                 WebkitOverflowScrolling: 'touch',
-                minWidth: 0,
+                // minWidth: 0, // removed duplicate
                 maxWidth: '100%',
               }}
             >
@@ -180,7 +180,6 @@ export function AnalyticsSection() {
               style={{
                 overflowX: 'auto',
                 WebkitOverflowScrolling: 'touch',
-                minWidth: 0,
                 maxWidth: '100%',
                 ...(window.innerWidth <= 600 ? { minWidth: 0 } : { overflowX: 'visible' })
               }}

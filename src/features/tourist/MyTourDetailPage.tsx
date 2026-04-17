@@ -6,16 +6,14 @@ import {
   getMyTour,
   removePoiFromMyTour,
   updateMyTourPoiOrder,
+  addPoiToMyTour,
 } from '../../api/services/userTours';
 import { getPoiContent, type TtsOptions } from '../../api/services/content';
+import { apiFetch } from '../../api/http';
+import AudioPlayer from './components/AudioPlayer';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface PoiContent {
-  description?: string;
-  audioUrl?: string;
-  audioDuration?: number; // seconds
-}
 
 interface ProcessedStop {
   id: string;
@@ -36,6 +34,7 @@ interface ProcessedStop {
   // Raw Poi data
   Poi?: any;
 }
+
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -61,81 +60,7 @@ async function share(data: { title: string; text: string; url: string }) {
   return 'shared';
 }
 
-// ─── Audio Player mini ────────────────────────────────────────────────────────
-
-interface AudioPlayerProps {
-  audioUrl: string;
-  onClose: () => void;
-  poiName: string;
-}
-
-function AudioPlayer({ audioUrl, onClose, poiName }: AudioPlayerProps) {
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [playing, setPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [duration, setDuration] = useState(0);
-
-  useEffect(() => {
-    const el = audioRef.current;
-    if (!el) return;
-    el.play().then(() => setPlaying(true)).catch(() => {});
-    const onTime = () => setProgress(el.currentTime);
-    const onMeta = () => setDuration(el.duration);
-    const onEnd  = () => setPlaying(false);
-    el.addEventListener('timeupdate', onTime);
-    el.addEventListener('loadedmetadata', onMeta);
-    el.addEventListener('ended', onEnd);
-    return () => {
-      el.removeEventListener('timeupdate', onTime);
-      el.removeEventListener('loadedmetadata', onMeta);
-      el.removeEventListener('ended', onEnd);
-      el.pause();
-    };
-  }, [audioUrl]);
-
-  const togglePlay = () => {
-    const el = audioRef.current;
-    if (!el) return;
-    if (playing) { el.pause(); setPlaying(false); }
-    else { el.play(); setPlaying(true); }
-  };
-
-  const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-  const pct = duration > 0 ? (progress / duration) * 100 : 0;
-
-  return (
-    <div className="fixed bottom-[88px] left-0 right-0 z-50 px-4 animate-in slide-in-from-bottom-4 duration-300">
-      <div className="max-w-[800px] mx-auto bg-gray-900 text-white rounded-2xl p-4 shadow-2xl border border-white/10">
-        <audio ref={audioRef} src={audioUrl} preload="auto" />
-        <div className="flex items-center gap-3">
-          <button
-            onClick={togglePlay}
-            className="w-10 h-10 rounded-full bg-[#FF6B35] flex items-center justify-center shrink-0 hover:bg-[#F25A24] transition-colors"
-          >
-            {playing
-              ? <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-              : <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
-            }
-          </button>
-          <div className="flex-1 min-w-0">
-            <div className="text-[12px] font-semibold truncate opacity-70 mb-1">{poiName}</div>
-            <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
-              <div className="h-full bg-[#FF6B35] rounded-full transition-all duration-200" style={{ width: `${pct}%` }} />
-            </div>
-            <div className="flex justify-between text-[10px] opacity-50 mt-1">
-              <span>{fmt(progress)}</span><span>{duration > 0 ? fmt(duration) : '--:--'}</span>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 transition-colors">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-              <path d="M18 6L6 18M6 6l12 12"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+// AudioPlayer is now imported from ./components/AudioPlayer
 
 // ─── Voucher Modal ────────────────────────────────────────────────────────────
 
@@ -204,6 +129,22 @@ function VoucherModal({ stop, onClose }: VoucherModalProps) {
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 
 export default function MyTourDetailPage() {
+  // Modal chọn POI
+  const [showPoiModal, setShowPoiModal] = useState(false);
+  const [poiList, setPoiList] = useState<any[]>([]);
+  const [poiSearch, setPoiSearch] = useState('');
+  const [poiLoading, setPoiLoading] = useState(false);
+
+  // Animation state for smooth slide (for POI modal)
+  const [modalOpen, setModalOpen] = useState(false);
+  useEffect(() => {
+    if (showPoiModal) {
+      setTimeout(() => setModalOpen(true), 10);
+    } else {
+      setModalOpen(false);
+    }
+  }, [showPoiModal]);
+
   const navigate = useNavigate();
   const { tourId } = useParams();
   const nav = useNavigate();
@@ -229,9 +170,12 @@ export default function MyTourDetailPage() {
   // Share loading
   const [isSharing, setIsSharing] = useState(false);
 
-  // Drag refs
+  // Drag refs for desktop
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
+  // Touch refs for mobile
+  const touchStartY = useRef<number | null>(null);
+  const touchStartIdx = useRef<number | null>(null);
 
   // ── Fetch tour ──────────────────────────────────────────────────────────────
 
@@ -280,6 +224,7 @@ export default function MyTourDetailPage() {
 
   const loadStopContent = useCallback(async (index: number) => {
     const stop = localStops[index];
+    console.log('Loading content for stop:', stop);
     if (!stop || stop.contentLoaded || stop.contentLoading) return;
     const poiId = stop.poi_id ?? stop.id;
     if (!poiId) return;
@@ -315,6 +260,7 @@ export default function MyTourDetailPage() {
 
   // ── Drag & drop ─────────────────────────────────────────────────────────────
 
+  // Desktop drag sort
   const handleSort = () => {
     if (dragItem.current !== null && dragOverItem.current !== null && dragItem.current !== dragOverItem.current) {
       const arr = [...localStops];
@@ -325,6 +271,125 @@ export default function MyTourDetailPage() {
     }
     dragItem.current = null;
     dragOverItem.current = null;
+  };
+
+  // Mobile touch sort
+  const handleTouchStart = (idx: number, e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+    touchStartIdx.current = idx;
+  };
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartY.current === null || touchStartIdx.current === null) return;
+    const deltaY = e.touches[0].clientY - touchStartY.current;
+    if (Math.abs(deltaY) > 40) {
+      // Move up or down
+      const direction = deltaY > 0 ? 1 : -1;
+      const newIdx = touchStartIdx.current + direction;
+      if (newIdx >= 0 && newIdx < localStops.length) {
+        const arr = [...localStops];
+        const [dragged] = arr.splice(touchStartIdx.current, 1);
+        arr.splice(newIdx, 0, dragged);
+        setLocalStops(arr);
+        setIsModified(true);
+        touchStartIdx.current = newIdx;
+        touchStartY.current = e.touches[0].clientY;
+      }
+    }
+  };
+  const handleTouchEnd = () => {
+    touchStartY.current = null;
+    touchStartIdx.current = null;
+  };
+
+  // Mở modal chọn POI
+  const handleAddPoi = async () => {
+    setShowPoiModal(true);
+    if (poiList.length === 0 && !poiLoading) {
+      setPoiLoading(true);
+      // Lấy radius từ cookie, nếu không có thì mặc định 50000
+      const getRadiusFromCookie = () => {
+        const match = document.cookie.match(/(?:^|; )radius=([^;]*)/);
+        const val = match ? decodeURIComponent(match[1]) : '';
+        const num = parseInt(val, 10);
+        return !isNaN(num) && num > 0 ? num : 50000;
+      };
+      const radius = getRadiusFromCookie();
+      // Lấy vị trí hiện tại của user
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(async (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          try {
+            // apiFetch trả về data đã parse, không phải Response
+            const data: any = await apiFetch(`/pois/nearby?lat=${lat}&lng=${lng}&radius=${radius}&limit=100`);
+            if (data && Array.isArray(data.data)) {
+              setPoiList(data.data);
+              console.log('Nearby POIs list:', data.data);
+            } else {
+              setPoiList([]);
+              console.warn('No POIs found in response:', data);
+            }
+          } catch (err) {
+            setPoiList([]);
+            console.error('Error fetching POIs:', err);
+          } finally {
+            setPoiLoading(false);
+          }
+        }, () => {
+          fallbackFetchPois();
+        });
+      } else {
+        fallbackFetchPois();
+      }
+    }
+  };
+
+  // Hàm fallback lấy POI với vị trí mặc định (Q.4)
+  const fallbackFetchPois = async () => {
+    // Lấy radius từ cookie, nếu không có thì mặc định 50000
+    const getRadiusFromCookie = () => {
+      const match = document.cookie.match(/(?:^|; )radius=([^;]*)/);
+      const val = match ? decodeURIComponent(match[1]) : '';
+      const num = parseInt(val, 10);
+      return !isNaN(num) && num > 0 ? num : 50000;
+    };
+    const radius = getRadiusFromCookie();
+    try {
+      // apiFetch trả về data đã parse, không phải Response
+      const data: any = await apiFetch(`/pois/nearby?lat=10.76485298975133&lng=106.59985033047423&radius=${radius}&limit=100`);
+      setPoiList(Array.isArray(data?.data) ? data.data : []);
+    } catch {
+      setPoiList([]);
+    } finally {
+      setPoiLoading(false);
+    }
+  };
+
+  // Thêm POI đã chọn vào localStops
+  const handleSelectPoi = (poi: any) => {
+    const newIdx = localStops.length;
+    const newStop: ProcessedStop & { isNew?: boolean } = {
+      id: poi.id,
+      poi_id: poi.id,
+      order_index: newIdx + 1,
+      status: 'upcoming',
+      name: poi.name,
+      emoji: getEmoji(newIdx),
+      address: poi.address || poi.short?.vi || '',
+      time: STOP_TIMES[newIdx % STOP_TIMES.length] ?? '15:00',
+      rating: poi.average_rating ? parseFloat(poi.average_rating).toFixed(1) : '4.5',
+      desc: '',
+      audioUrl: undefined,
+      audioDuration: undefined,
+      contentLoaded: false,
+      contentLoading: false,
+      Poi: poi,
+      isNew: true, // Đánh dấu là POI mới
+    };
+    setLocalStops(prev => [...prev, newStop]);
+    setIsModified(true);
+    setExpandedStopIndex(newIdx);
+    setShowPoiModal(false);
   };
 
   // ── Delete stop ─────────────────────────────────────────────────────────────
@@ -344,9 +409,21 @@ export default function MyTourDetailPage() {
     if (!isModified || !tourId) return;
     setIsSaving(true);
     try {
+      // Xóa các POI đã bị xóa khỏi tour
       for (const poiId of deletedStopIds) {
         await removePoiFromMyTour(tourId, poiId);
       }
+
+      // Thêm các POI mới vào tour trước khi update order
+      for (let i = 0; i < localStops.length; i++) {
+        const stop = localStops[i];
+        // @ts-ignore
+        if (stop.isNew) {
+          await addPoiToMyTour(tourId, stop.poi_id ?? stop.id, i + 1);
+        }
+      }
+
+      // Cập nhật lại thứ tự các POI còn lại
       if (localStops.length > 0) {
         const base = localStops.length + 1000;
         for (let i = 0; i < localStops.length; i++) {
@@ -363,13 +440,14 @@ export default function MyTourDetailPage() {
       showToast({ title: 'Đã cập nhật lộ trình thành công' });
       setDeletedStopIds([]);
       setIsModified(false);
-      loadTour();
+      // Luôn reload lại tour từ backend để đồng bộ UI
+      await loadTour();
     } catch (err: any) {
       const status  = err?.status;
       const details = err?.details ?? err?.message;
       const msg = typeof details === 'string' ? details : JSON.stringify(details);
       showToast({ title: status ? `Thất bại (${status})` : 'Cập nhật thất bại', message: msg });
-      loadTour();
+      await loadTour();
     } finally {
       setIsSaving(false);
     }
@@ -460,21 +538,6 @@ export default function MyTourDetailPage() {
   };
   // ── Action handlers for stop buttons ────────────────────────────────────────
 
-  const handleNavigateToStop = (stop: ProcessedStop) => {
-    const lat = stop.Poi?.lat ?? stop.Poi?.latitude;
-    const lng = stop.Poi?.lng ?? stop.Poi?.longitude;
-    if (!lat || !lng) {
-      showToast({ title: 'Chưa có tọa độ của địa điểm này' });
-      return;
-    }
-    // Mở Google Maps nếu mobile, fallback sang map page
-    const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
-    if (isMobile) {
-      window.open(`https://maps.google.com/maps?daddr=${lat},${lng}&dirflg=w`, '_blank');
-    } else {
-      nav(`/tourist/map?lat=${lat}&lng=${lng}&poiId=${stop.poi_id ?? stop.id}`);
-    }
-  };
 
   const handleListenStop = async (stop: ProcessedStop, idx: number) => {
     // Đảm bảo content đã load
@@ -614,125 +677,287 @@ export default function MyTourDetailPage() {
 
   // ── Stops tab ────────────────────────────────────────────────────────────────
 
-  const renderStopsTab = (data: typeof processedTour) => {
+  const renderStopsTab = (data: typeof processedTour, modalOpen: boolean) => {
     if (!data?.stops?.length) return <div className="text-gray-400 text-center py-10">Chưa có dữ liệu lộ trình.</div>;
 
+    // Responsive: detect mobile
+    const isMobile = typeof window !== 'undefined' && window.innerWidth <= 600;
+
     return (
-      <div className="ts-fade-in pb-[90px]">
-        <div className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-5 px-1">
-          Lộ trình chi tiết · {data.stops.length} điểm dừng
-        </div>
-        <div className="relative">
-          {/* Timeline line */}
-          <div className="absolute top-5 bottom-10 left-5 w-[2px] bg-gray-100 z-0" />
-
-          {data.stops.map((stop, i) => {
-            const isExpanded = expandedStopIndex === i;
-            const isVisited  = stop.status === 'visited';
-            const isCurrent  = stop.status === 'current';
-
-            return (
-              <div key={stop.id} className="flex gap-4 mb-3 relative z-10">
-                {/* Step indicator */}
-                <div className="flex flex-col items-center shrink-0 pt-2">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-[13px] font-bold border-[3px] border-white shadow-sm transition-colors
-                    ${isVisited ? 'bg-[#10B981] text-white' : isCurrent ? 'bg-[#FF6B35] text-white shadow-md shadow-[#FF6B35]/30' : 'bg-gray-100 text-gray-400'}`}>
-                    {isVisited ? '✓' : i + 1}
-                  </div>
-                </div>
-
-                {/* Card */}
-                <div
-                  className={`flex-1 bg-white rounded-[16px] overflow-hidden transition-all duration-300 cursor-pointer select-none
-                    ${isCurrent ? 'border-[1.5px] border-[#FF6B35] shadow-md shadow-[#FF6B35]/10' : 'border border-black/5 shadow-sm hover:shadow-md'}
-                    ${isExpanded ? 'ring-2 ring-orange-50' : ''}`}
-                  onClick={() => setExpandedStopIndex(isExpanded ? null : i)}
+      <>
+        <div className="ts-fade-in pb-[90px]">
+          {/* ...existing stops list... */}
+          <div className="flex justify-between items-center mb-3">
+            <div className="text-[11px] font-bold text-gray-400 uppercase tracking-widest px-1">
+              Lộ trình chi tiết · {data.stops.length} điểm dừng
+            </div>
+            <button
+              className="ml-auto px-3 py-1.5 rounded-lg bg-[#FF6B35] text-white text-xs font-bold shadow hover:bg-[#F25A24] transition-colors"
+              onClick={handleAddPoi}
+            >+ Thêm điểm dừng</button>
+          </div>
+          <div className="relative">
+            <div className="absolute top-5 bottom-10 left-5 w-[2px] bg-gray-100 z-0" />
+            {data.stops.map((stop, i) => {
+              const isExpanded = expandedStopIndex === i;
+              const isVisited  = stop.status === 'visited';
+              const isCurrent  = stop.status === 'current';
+              return (
+                <div key={stop.id} className="flex gap-4 mb-3 relative z-10"
+                  draggable
+                  onDragStart={() => { dragItem.current = i; }}
+                  onDragEnter={() => { dragOverItem.current = i; }}
+                  onDragEnd={handleSort}
+                  onDragOver={e => e.preventDefault()}
+                  onTouchStart={e => handleTouchStart(i, e)}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
                 >
-                  {/* Card top */}
-                  <div className="p-4 flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center text-2xl shrink-0">{stop.emoji}</div>
-                    <div className="flex-1 overflow-hidden">
-                      <div className="text-[14px] font-bold text-gray-800 truncate">{stop.name}</div>
-                      <div className="text-[12px] text-gray-400 truncate mt-0.5">📍 {stop.address}</div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-[11px] text-gray-400 font-medium">{stop.time}</span>
-                      <svg
-                        className={`w-4 h-4 text-gray-300 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
-                        fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
+                  {/* Step indicator */}
+                  <div className="flex flex-col items-center shrink-0 pt-2">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-[13px] font-bold border-[3px] border-white shadow-sm transition-colors
+                      ${isVisited ? 'bg-[#10B981] text-white' : isCurrent ? 'bg-[#FF6B35] text-white shadow-md shadow-[#FF6B35]/30' : 'bg-gray-100 text-gray-400'}`}>
+                      {isVisited ? '✓' : i + 1}
                     </div>
                   </div>
-
-                  {/* Expanded content */}
-                  <div className={`transition-all duration-300 ease-in-out origin-top overflow-hidden ${isExpanded ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                    <div className="px-4 pb-4 border-t border-gray-100 pt-3">
-
-                      {/* Description */}
-                      {stop.contentLoading ? (
-                        <div className="flex items-center gap-2 mb-3 text-[13px] text-gray-400">
-                          <div className="w-4 h-4 border-2 border-[#FF6B35] border-t-transparent rounded-full animate-spin" />
-                          Đang tải nội dung…
+                  {/* Card */}
+                  <div
+                    className={`flex-1 bg-white rounded-[16px] overflow-hidden transition-all duration-300 cursor-pointer select-none
+                      ${isCurrent ? 'border-[1.5px] border-[#FF6B35] shadow-md shadow-[#FF6B35]/10' : 'border border-black/5 shadow-sm hover:shadow-md'}
+                      ${isExpanded ? 'ring-2 ring-orange-50' : ''}`}
+                    onClick={() => setExpandedStopIndex(isExpanded ? null : i)}
+                  >
+                    {/* ...existing card content... */}
+                    <div className="p-4 flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center text-2xl shrink-0">{stop.emoji}</div>
+                      <div className="flex-1 overflow-hidden">
+                        <div className="text-[14px] font-bold text-gray-800 truncate">{stop.name}</div>
+                        <div className="text-[12px] text-gray-400 truncate mt-0.5">📍 {stop.address}</div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-[11px] text-gray-400 font-medium">{stop.time}</span>
+                        <svg
+                          className={`w-4 h-4 text-gray-300 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                          fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                      {/* Delete button - more visible */}
+                      <button
+                        className="ml-2 px-2 py-1 rounded-lg bg-red-500 text-white text-xs font-bold shadow hover:bg-red-700 transition-colors"
+                        onClick={e => { e.stopPropagation(); handleDeleteStop(i); }}
+                        title="Xóa điểm dừng"
+                      >Xóa</button>
+                    </div>
+                    {/* Expanded content */}
+                    <div className={`transition-all duration-300 ease-in-out origin-top overflow-hidden ${isExpanded ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                      <div className="px-4 pb-4 border-t border-gray-100 pt-3">
+                        {/* Description */}
+                        {stop.contentLoading ? (
+                          <div className="flex items-center gap-2 mb-3 text-[13px] text-gray-400">
+                            <div className="w-4 h-4 border-2 border-[#FF6B35] border-t-transparent rounded-full animate-spin" />
+                            Đang tải nội dung…
+                          </div>
+                        ) : (
+                          <div className="ts-fade-in pb-[90px]">
+                            {/* ...existing stops list... */}
+                          </div>
+                        )}
+                        {/* Modal chọn POI - UI/UX nâng cấp */}
+                        {showPoiModal && (
+                              isMobile ? (
+                                // Mobile: Fullscreen bottom sheet, no backdrop
+                                <div
+                                  className={`fixed inset-0 z-50 flex flex-col bg-white animate-in ${modalOpen ? 'slide-in-from-bottom-4' : 'translate-y-full'} transition-transform duration-400`}
+                                  style={{ borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '100vh', minHeight: '60vh', boxShadow: '0 -4px 32px rgba(0,0,0,0.10)' }}
+                                  onClick={e => e.stopPropagation()}
+                                >
+                                  {/* Drag handle */}
+                                  <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mt-3 mb-2" />
+                                  {/* Header */}
+                                  <div className="flex items-center justify-between p-4 pb-2 border-b border-gray-100">
+                                    <div className="flex items-center gap-2">
+                                      {/* ...icon and title... */}
+                                    </div>
+                                    <button
+                                      className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                                      onClick={() => setShowPoiModal(false)}
+                                      aria-label="Đóng"
+                                    >
+                                      {/* ...close icon... */}
+                                    </button>
+                                  </div>
+                                  {/* Search bar */}
+                                  <div className="px-4 pt-2 pb-3">
+                                    {/* ...search input... */}
+                                  </div>
+                                  {/* Danh sách POI */}
+                                  <div className="flex-1 overflow-y-auto divide-y px-2 pb-2 min-h-0">
+                                    {/* ...POI list... */}
+                                  </div>
+                                </div>
+                              ) : (
+                                // Desktop/laptop: Modal as before
+                                <div
+                                  className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm`}
+                                  onClick={() => setShowPoiModal(false)}
+                                >
+                                  <div
+                                    className={`bg-white rounded-3xl max-w-xl w-full mx-auto p-8 shadow-2xl relative transition-all duration-300 flex flex-col items-center ${modalOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`}
+                                    style={{ maxWidth: '36rem', maxHeight: '70vh', minHeight: '320px', justifyContent: 'center' }}
+                                    onClick={e => e.stopPropagation()}
+                                  >
+                                    {/* Header */}
+                                    <div className="flex items-center justify-between mb-3">
+                                      <div className="flex items-center gap-2">
+                                        {/* ...icon and title... */}
+                                      </div>
+                                      <button
+                                        className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                                        onClick={() => setShowPoiModal(false)}
+                                        aria-label="Đóng"
+                                      >
+                                        {/* ...close icon... */}
+                                      </button>
+                                    </div>
+                                    {/* Search bar */}
+                                    <div className="px-4 mb-3">
+                                      {/* ...search input... */}
+                                    </div>
+                                    {/* Danh sách POI */}
+                                    <div className="flex-1 overflow-y-auto divide-y w-full px-0" style={{ width: '100%' }}>
+                                      {/* ...POI list... */}
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            )}
+                       
+                    
+                          <button
+                            onClick={e => { e.stopPropagation(); handleListenStop(stop, i); }}
+                            disabled={stop.contentLoading}
+                            className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl bg-violet-50 text-violet-600 hover:bg-violet-100 transition-all active:scale-95 border border-violet-100 disabled:opacity-50"
+                          >
+                            {stop.contentLoading
+                              ? <div className="w-[18px] h-[18px] border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                              : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
+                                  <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>
+                                </svg>
+                            }
+                            <span className="text-[11px] font-bold">
+                              {stop.audioDuration ? `~${Math.round(stop.audioDuration)}s` : 'Audio'}
+                            </span>
+                          </button>
+                          {/* Voucher */}
+                          <button
+                            onClick={e => { e.stopPropagation(); handleVoucherStop(stop); }}
+                            className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl bg-amber-50 text-amber-600 hover:bg-amber-100 transition-all active:scale-95 border border-amber-100"
+                          >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+                              <line x1="7" y1="7" x2="7.01" y2="7"/>
+                            </svg>
+                            <span className="text-[11px] font-bold">Voucher</span>
+                          </button>
                         </div>
-                      ) : (
-                        <p className="text-[13px] text-gray-600 mb-4 leading-relaxed">
-                          {stop.desc ?? 'Hương vị đặc trưng không thể nhầm lẫn. Không gian quán mang đậm nét văn hóa địa phương với những câu chuyện thú vị từ người bán.'}
-                        </p>
-                      )}
-
-                      {/* ── 3 Action buttons ── */}
-                      <div className="grid grid-cols-3 gap-2">
-                        {/* Chỉ đường */}
-                        <button
-                          onClick={e => { e.stopPropagation(); handleNavigateToStop(stop); }}
-                          className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl bg-[#FF6B35] text-white hover:bg-[#F25A24] transition-all active:scale-95 shadow-sm shadow-[#FF6B35]/30"
-                        >
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polygon points="3 11 22 2 13 21 11 13 3 11"/>
-                          </svg>
-                          <span className="text-[11px] font-bold">Chỉ đường</span>
-                        </button>
-
-                        {/* Audio */}
-                        <button
-                          onClick={e => { e.stopPropagation(); handleListenStop(stop, i); }}
-                          disabled={stop.contentLoading}
-                          className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl bg-violet-50 text-violet-600 hover:bg-violet-100 transition-all active:scale-95 border border-violet-100 disabled:opacity-50"
-                        >
-                          {stop.contentLoading
-                            ? <div className="w-[18px] h-[18px] border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-                            : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
-                                <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>
-                              </svg>
-                          }
-                          <span className="text-[11px] font-bold">
-                            {stop.audioDuration ? `~${Math.round(stop.audioDuration)}s` : 'Audio'}
-                          </span>
-                        </button>
-
-                        {/* Voucher */}
-                        <button
-                          onClick={e => { e.stopPropagation(); handleVoucherStop(stop); }}
-                          className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl bg-amber-50 text-amber-600 hover:bg-amber-100 transition-all active:scale-95 border border-amber-100"
-                        >
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
-                            <line x1="7" y1="7" x2="7.01" y2="7"/>
-                          </svg>
-                          <span className="text-[11px] font-bold">Voucher</span>
-                        </button>
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
             );
           })}
+          </div>
         </div>
-      </div>
+        {/* Modal chọn POI - UI/UX nâng cấp */}
+        {showPoiModal && (
+          <div
+            className={`fixed inset-0 z-50 flex ${isMobile ? 'items-end' : 'items-center'} justify-center bg-black/40 backdrop-blur-sm`}
+            onClick={() => setShowPoiModal(false)}
+          >
+            <div
+              className={
+                isMobile
+                  ? `w-full rounded-t-3xl bg-white shadow-2xl max-h-[80vh] flex flex-col transition-transform duration-400 ${modalOpen ? 'translate-y-0' : 'translate-y-full'}`
+                  : `bg-white rounded-3xl max-w-xl w-full mx-auto p-8 shadow-2xl relative transition-all duration-300 flex flex-col items-center ${modalOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`
+              }
+              style={isMobile
+                ? {padding: 0, maxHeight: '80vh'}
+                : {maxWidth: '46rem', maxHeight: '70vh', minHeight: '320px', justifyContent: 'center'}
+              }
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className={`flex items-center justify-between ${isMobile ? 'p-4 pb-2' : 'mb-3 w-full'}`} style={isMobile ? {borderBottom: '1px solid #f3f3f3'} : {}}>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">🧑‍✈️</span>
+                  <h3 className="text-lg font-extrabold text-gray-900">Chọn điểm dừng mới</h3>
+                </div>
+                <button
+                  className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                  onClick={() => setShowPoiModal(false)}
+                  aria-label="Đóng"
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                </button>
+              </div>
+              {/* Search bar */}
+              <div className={`px-4 ${isMobile ? 'pt-2 pb-3' : 'mb-3 w-full'}`}>
+                <div className="relative">
+                  <input
+                    className="w-full border border-gray-200 rounded-full px-4 py-2 pl-10 text-sm focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition-all"
+                    placeholder="Tìm kiếm tên địa điểm..."
+                    value={poiSearch}
+                    onChange={e => setPoiSearch(e.target.value)}
+                  />
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  </span>
+                </div>
+              </div>
+              {/* POI list */}
+              <div className={`flex-1 overflow-y-auto divide-y ${isMobile ? 'px-2 pb-2' : 'w-full'}`} style={isMobile ? {minHeight: 0} : {}}>
+                {poiLoading ? (
+                  <div className="flex flex-col items-center justify-center py-10">
+                    <span className="inline-block w-10 h-10">
+                      <svg className="animate-spin" viewBox="0 0 50 50">
+                        <circle className="opacity-25" cx="25" cy="25" r="20" fill="none" stroke="#FF6B35" strokeWidth="6" />
+                        <circle className="opacity-75" cx="25" cy="25" r="20" fill="none" stroke="#FF6B35" strokeWidth="6" strokeDasharray="31.4 188.4" strokeLinecap="round" />
+                      </svg>
+                    </span>
+                  </div>
+                ) : (
+                  (poiList.filter(p => !poiSearch || (p.name && p.name.toLowerCase().includes(poiSearch.toLowerCase()))).length === 0 ?
+                    <div className="flex flex-col items-center justify-center py-10 text-gray-400">
+                      <div className="text-3xl mb-2">🤔</div>
+                      <div>Không tìm thấy địa điểm phù hợp.</div>
+                    </div> :
+                    poiList.filter(p => !poiSearch || (p.name && p.name.toLowerCase().includes(poiSearch.toLowerCase())))
+                      .map(poi => (
+                        <button
+                          key={poi.id}
+                          className="w-full text-left px-3 py-3 hover:bg-orange-50 rounded-xl flex items-center gap-3 transition-all group"
+                          onClick={() => handleSelectPoi(poi)}
+                        >
+                          <span className="text-2xl bg-orange-100 rounded-xl p-2 mr-2">{getEmoji(localStops.length)}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-bold text-gray-900 truncate text-[15px]">{poi.name}</div>
+                            <div className="text-xs text-gray-400 truncate">{poi.address || poi.short?.vi || ''}</div>
+                          </div>
+                          <span className="text-xs text-gray-400 ml-auto font-semibold bg-orange-50 px-2 py-1 rounded-full">{poi.category}</span>
+                          <span className="ml-2 text-orange-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity">+ Thêm</span>
+                        </button>
+                      ))
+                  )
+                )}
+              </div>
+              {/* Kéo để đóng trên mobile */}
+              {isMobile && <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto my-3" />}
+            </div>
+          </div>
+        )}
+      </>
     );
   };
 
@@ -808,7 +1033,7 @@ export default function MyTourDetailPage() {
         {/* ── Body ── */}
         <div className="flex-1 p-4 md:p-6 max-w-[800px] mx-auto w-full">
           {tab === 'overview' && renderOverviewTab(processedTour)}
-          {tab === 'stops'    && renderStopsTab(processedTour)}
+          {tab === 'stops'    && renderStopsTab(processedTour, modalOpen)}
           {tab === 'ai'       && (
             <div className="flex flex-col items-center justify-center py-20 text-center text-gray-400">
               <div className="text-4xl mb-3">✨</div>
