@@ -1,3 +1,4 @@
+@import "tailwindcss";
 
 :root {
 	--admin-sidebar-width: 72px;

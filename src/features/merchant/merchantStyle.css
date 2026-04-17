@@ -1,4 +1,6 @@
-.md-root {
+@import "tailwindcss";
+
+:root {
   --amber: #D97706;
   --amber-lt: #FEF3C7;
   --saffron: #F59E0B;
@@ -15,15 +17,6 @@
   --r-sm: 8px;
   --r-pill: 999px;
   --sidebar: 220px;
-
-  display: flex;
-  min-height: 100vh;
-  font-family: 'DM Sans', sans-serif;
-  color: var(--ink);
-  background:
-    radial-gradient(900px 420px at 8% -6%, #FFF4DA 0%, transparent 55%),
-    radial-gradient(900px 520px at 92% -8%, #FFE8C2 0%, transparent 58%),
-    linear-gradient(180deg, var(--smoke), #EFE3CF);
 }
 
 /* ── Sidebar ── */

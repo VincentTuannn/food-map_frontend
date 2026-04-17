@@ -1,3 +1,9 @@
+export async function registerMerchant(payload: { email: string; password: string; business_name: string }) {
+  return apiFetch('/auth/register/merchant', {
+    method: 'POST',
+    json: payload,
+  });
+}
 import { apiFetch } from "../http";
 import type { ApiPoi } from "./poi";
 

@@ -1,0 +1,17 @@
+{
+  "app.name": "Vĩnh Khánh Tour Guide",
+  "nav.tourist": "Du khách",
+  "nav.merchant": "Quán ăn",
+  "nav.admin": "Admin",
+  "nav.map": "Bản đồ",
+  "nav.poi": "POI",
+  "nav.premium": "Premium",
+  "nav.start": "Bắt đầu",
+  "top.qrToMap": "QR → Map",
+  "top.premium": "Premium",
+  "tourist.start.title": "Bắt đầu hành trình",
+  "tourist.start.subtitle": "Đi một vòng, nghe một câu chuyện, khám phá một hương vị.",
+  "tourist.start.requestLocation": "Cấp quyền vị trí",
+  "tourist.start.openMap": "Mở Map",
+  "tourist.start.radiusSet": "Đã set bán kính {{radius}}m"
+}

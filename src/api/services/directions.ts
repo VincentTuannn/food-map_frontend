@@ -7,6 +7,8 @@ export type DirectionsRequest = {
 }
 
 export type DirectionsRoute = {
+  duration: any;
+  distance: any;
   distanceMeters: number
   durationSeconds: number
   steps: Array<{ instruction: string; distanceMeters: number }>
