@@ -7,8 +7,20 @@ export function AdminDashboard() {
   const showToast = useAppStore((s) => s.showToast);
   const navigate = useNavigate(); // Hook dùng để chuyển trang
   const [stats, setStats] = useState<any>(null);
+  const [activeUsersStats, setActiveUsersStats] = useState<any>(null);
   const [isFetching, setIsFetching] = useState(true);
 
+  // Gọi api riêng biệt cho active users để setup polling
+  const loadActiveUsers = async () => {
+    try {
+      const res = await adminApi.getActiveUsers();
+      if (res.success && res.data) {
+        setActiveUsersStats(res.data);
+      }
+    } catch (error) {
+      // ignore silently for background polling
+    }
+  };
   const loadDashboard = async () => {
     setIsFetching(true);
     try {
@@ -49,7 +61,14 @@ export function AdminDashboard() {
     }
   };
 
-  useEffect(() => { loadDashboard(); }, []);
+  useEffect(() => { 
+    loadDashboard(); 
+    loadActiveUsers(); // Tải ngay lần đầu
+    
+    // Polling active users mỗi 30 giây
+    const interval = setInterval(loadActiveUsers, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   if (isFetching) return (
     <div className="text-gray-400 text-center py-20 animate-pulse select-none">
@@ -87,6 +106,8 @@ export function AdminDashboard() {
     <div className="flex flex-col gap-8 animate-fadeIn">
       {/* 1. HÀNG ĐẦU: CÁC CON SỐ TỔNG QUÁT (Đã gắn link) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {/* Nổi bật thẻ Active Users */}
+        <StatCard title="Đang trực tuyến" value={activeUsersStats?.count || 0} icon="🟢" color="#00C853" path="/admin/active-users" />
         <StatCard title="Tổng Doanh thu" value={stats?.totalRevenue} icon="💰" color="#00C853" path="/admin/transactions" />
         <StatCard title="Khách du lịch" value={stats?.totalUsers} icon="👥" color="#7B2CBF" path="/admin/users" />
         <StatCard title="Đối tác (Merchant)" value={stats?.totalMerchants} icon="🏪" color="#9D4EDD" path="/admin/merchants" />

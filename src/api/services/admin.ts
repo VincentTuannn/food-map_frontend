@@ -111,4 +111,6 @@ export const adminApi = {
   // 10. TRACKING LOGS (NHẬT KÝ HỆ THỐNG)
   getTrackingLogs: (event_type?: string) => 
     apiFetch<any>(`/admin/tracking-logs?event_type=${event_type || ''}`),
+  // 11. ACTIVE USERS (THIẾT BỊ ĐANG HOẠT ĐỘNG)
+  getActiveUsers: () => apiFetch<any>('/admin/active-users'),
 };
