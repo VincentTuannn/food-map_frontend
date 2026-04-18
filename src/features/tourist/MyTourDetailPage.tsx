@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../shared/i18n/i18n'
 import { AppShell } from '../../shared/ui/AppShell';
 import { useAppStore } from '../../shared/store/appStore';
 import {
@@ -72,6 +74,7 @@ interface VoucherModalProps {
 function VoucherModal({ stop, onClose }: VoucherModalProps) {
   const code = `FOODTOUR-${stop.id.slice(0, 6).toUpperCase()}`;
   const [copied, setCopied] = useState(false);
+  const { t } = useTranslation();
 
   const copyCode = async () => {
     await navigator.clipboard.writeText(code);
@@ -89,37 +92,27 @@ function VoucherModal({ stop, onClose }: VoucherModalProps) {
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[18px] font-extrabold text-gray-900">🎟 Voucher độc quyền</h3>
+          <h3 className="text-[18px] font-extrabold text-gray-900">🎟 {t('tourDetail.voucher.title', 'Voucher độc quyền')}</h3>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M18 6L6 18M6 6l12 12"/>
-            </svg>
+            {/* ...existing code... */}
           </button>
         </div>
 
         <div className="bg-gradient-to-r from-[#FF7A45] to-[#FF512F] rounded-2xl p-5 text-white text-center mb-4">
-          <div className="text-[11px] font-bold uppercase tracking-widest opacity-80 mb-1">Dành riêng cho bạn</div>
-          <div className="text-3xl font-extrabold mb-1">{stop.name}</div>
-          <div className="text-[13px] opacity-90">Giảm 10% cho lần ghé thăm này</div>
+          <div className="text-[11px] font-bold uppercase tracking-widest opacity-80 mb-1">{t('tourDetail.voucher.for_you', 'Dành riêng cho bạn')}</div>
+          <div className="text-3xl font-extrabold mb-1">{/* ...existing code... */}</div>
+          <div className="text-[13px] opacity-90">{t('tourDetail.voucher.discount', 'Giảm 10% cho lần ghé thăm này')}</div>
         </div>
 
-        {/* Mã voucher dạng dashed border */}
+        {/* ...existing code... */}
         <div className="relative border-2 border-dashed border-[#FF6B35]/40 rounded-xl p-4 mb-4 bg-orange-50/50">
-          <div className="text-[11px] text-gray-400 font-bold uppercase tracking-wider mb-1">Mã giảm giá</div>
-          <div className="flex items-center justify-between">
-            <span className="text-[20px] font-mono font-extrabold text-gray-800 tracking-widest">{code}</span>
-            <button
-              onClick={copyCode}
-              className={`px-4 py-2 rounded-xl text-[13px] font-bold transition-all ${copied ? 'bg-green-500 text-white' : 'bg-[#FF6B35] text-white hover:bg-[#F25A24]'}`}
-            >
-              {copied ? '✓ Đã chép' : 'Sao chép'}
-            </button>
-          </div>
+          {/* ...existing code... */}
         </div>
 
         <p className="text-[12px] text-gray-400 text-center">
-          Voucher có hiệu lực khi bạn ở trong bán kính 100m của địa điểm.
-          Hết hạn sau 24 giờ.
+          {t('tourDetail.voucher.valid', 'Voucher có hiệu lực khi bạn ở trong bán kính 100m của địa điểm.')}
+          <br />
+          {t('tourDetail.voucher.expiry', 'Hết hạn sau 24 giờ.')}
         </p>
       </div>
     </div>
@@ -151,6 +144,7 @@ export default function MyTourDetailPage() {
   const showToast = useAppStore((s) => s.showToast);
   const setActiveTourForMap = useAppStore((s) => s.setActiveTourForMap);
   const language = useAppStore((s) => s.language ?? 'vi');
+  const { t, } = useTranslation();
 
   const [tour, setTour] = useState<any | null>(null);
   const [tab, setTab] = useState<'overview' | 'stops' | 'ai' | 'reviews'>('overview');
@@ -184,9 +178,9 @@ export default function MyTourDetailPage() {
     setLoading(true);
     getMyTour(tourId)
       .then((res) => { if (res) setTour(res); })
-      .catch(() => showToast({ title: 'Không tải được tour' }))
+      .catch(() => showToast({ title: t('tourDetail.toast.load_tour_error', 'Không tải được tour') }))
       .finally(() => setLoading(false));
-  }, [tourId, showToast]);
+  }, [tourId, showToast, t]);
 
   useEffect(() => { loadTour(); }, [loadTour]);
 
@@ -401,6 +395,7 @@ export default function MyTourDetailPage() {
     setLocalStops(prev => prev.filter((_, i) => i !== idx));
     if (expandedStopIndex === idx) setExpandedStopIndex(null);
     setIsModified(true);
+    showToast({ title: t('tourDetail.toast.stop_deleted', 'Đã xoá điểm dừng') });
   };
 
   // ── Save tour ───────────────────────────────────────────────────────────────
@@ -437,7 +432,7 @@ export default function MyTourDetailPage() {
           await updateMyTourPoiOrder(tourId, orderId, i + 1);
         }
       }
-      showToast({ title: 'Đã cập nhật lộ trình thành công' });
+      showToast({ title: t('tourDetail.toast.save_success', 'Đã cập nhật lộ trình thành công') });
       setDeletedStopIds([]);
       setIsModified(false);
       // Luôn reload lại tour từ backend để đồng bộ UI
@@ -446,7 +441,7 @@ export default function MyTourDetailPage() {
       const status  = err?.status;
       const details = err?.details ?? err?.message;
       const msg = typeof details === 'string' ? details : JSON.stringify(details);
-      showToast({ title: status ? `Thất bại (${status})` : 'Cập nhật thất bại', message: msg });
+      showToast({ title: status ? t('tourDetail.toast.save_error_status', 'Thất bại') + ` (${status})` : t('tourDetail.toast.save_error', 'Cập nhật thất bại'), message: msg });
       await loadTour();
     } finally {
       setIsSaving(false);
@@ -459,11 +454,11 @@ export default function MyTourDetailPage() {
     setIsSharing(true);
     const url = `${window.location.origin}/tourist/tour/${tourId}`;
     const result = await share({
-      title: processedTour?.name ?? 'Food Map Tour',
-      text: `Khám phá tour ẩm thực: ${processedTour?.name}`,
+      title: processedTour?.name ?? t('tourDetail.share.title', 'Food Map Tour'),
+      text: t('tourDetail.share.text', 'Khám phá tour ẩm thực: {{name}}', { name: processedTour?.name }),
       url,
     });
-    if (result === 'copied') showToast({ title: 'Đã sao chép link!' });
+    if (result === 'copied') showToast({ title: t('tourDetail.toast.link_copied', 'Đã sao chép link!') });
     setIsSharing(false);
   };
 
@@ -570,25 +565,26 @@ export default function MyTourDetailPage() {
 
   const processedTour = tour ? {
     id: tour.id as string,
-    name: (tour.name as string) || 'Unknown Tour',
-    description: (tour.description as string) || 'Hành trình khám phá những góc phố đậm chất Quận 4.',
+    name: (tour.name as string) || t('tourDetail.unknown_tour', 'Unknown Tour'),
+    description: (tour.description as string) || t('tourDetail.default_description', 'Hành trình khám phá những góc phố đậm chất Quận 4.'),
     isPremium: tour.visibility === 'PRIVATE',
     visitedCount,
-    duration: '~2.5 giờ',
-    distance: '1.8 km',
+    duration: t('tourDetail.default_duration', '~2.5 giờ'),
+    distance: t('tourDetail.default_distance', '1.8 km'),
     stops: localStops,
   } : null;
 
   // ── Overview tab ─────────────────────────────────────────────────────────────
 
-  const renderOverviewTab = (data: typeof processedTour) => {
+  // Fix: pass t as argument
+  const renderOverviewTab = (data: typeof processedTour, t: any) => {
     if (!data) return null;
     const pct = data.stops.length ? Math.round((data.visitedCount / data.stops.length) * 100) : 0;
     const features = [
-      { icon: '🎧', title: 'Audio Thuyết minh', sub: 'Nghe câu chuyện từng địa điểm' },
-      { icon: '🗺️', title: 'Bản đồ offline', sub: 'Không cần kết nối mạng' },
-      { icon: '🎟️', title: 'Voucher độc quyền', sub: 'Ưu đãi chỉ dành cho tour' },
-      { icon: '🌐', title: 'Đa ngôn ngữ', sub: 'VN · EN · JP · CN · KR' },
+      { icon: '🎧', title: t('tourDetail.feature.audio', 'Audio Thuyết minh'), sub: t('tourDetail.feature.audio_sub', 'Nghe câu chuyện từng địa điểm') },
+      { icon: '🗺️', title: t('tourDetail.feature.directions', 'Chỉ đường'), sub: t('tourDetail.feature.directions_sub', 'Dẫn đường đến từng địa điểm dễ dàng') },
+      { icon: '🎟️', title: t('tourDetail.feature.voucher', 'Voucher độc quyền'), sub: t('tourDetail.feature.voucher_sub', 'Ưu đãi chỉ dành cho tour') },
+      { icon: '🌐', title: t('tourDetail.feature.multilang', 'Đa ngôn ngữ'), sub: t('tourDetail.feature.multilang_sub', 'VN · EN · JP · CN · KR') },
     ];
 
     return (
@@ -597,17 +593,17 @@ export default function MyTourDetailPage() {
         <div className="rounded-[16px] p-5 text-white relative overflow-hidden mb-4 shadow-sm bg-gradient-to-r from-[#FF7A45] to-[#FF512F]">
           <div className="absolute top-4 right-4 w-14 h-14 bg-black/10 rounded-xl flex items-center justify-center text-3xl backdrop-blur-sm">🌆</div>
           <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-white/20 inline-block mb-3 border border-white/30">
-            {data.isPremium ? '🔒 Tour riêng tư' : '✓ Tour miễn phí'}
+            {data.isPremium ? t('tourDetail.premium', '🔒 Tour riêng tư') : t('tourDetail.free', '✓ Tour miễn phí')}
           </span>
           <h2 className="text-[22px] font-bold mb-2 leading-tight pr-16">{data.name}</h2>
           <div className="flex items-center gap-4 text-[12px] opacity-90 font-medium mb-6">
-            <span>📍 {data.stops.length} điểm</span>
+            <span>{t('tourDetail.stops_count', { count: data.stops.length, defaultValue: '📍 {{count}} điểm' })}</span>
             <span>⏱ {data.duration}</span>
             <span>🚶 {data.distance}</span>
           </div>
           <div>
             <div className="flex justify-between text-[11px] font-bold mb-1.5 uppercase tracking-wide">
-              <span>Tiến độ</span><span>{pct}%</span>
+              <span>{t('tourDetail.progress', 'Tiến độ')}</span><span>{pct}%</span>
             </div>
             <div className="h-1.5 rounded-full bg-black/20 overflow-hidden">
               <div className="h-full bg-white rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
@@ -618,8 +614,8 @@ export default function MyTourDetailPage() {
         {/* Summary list with drag */}
         <div className="bg-white rounded-[16px] p-5 border border-black/5 shadow-sm mb-4">
           <div className="flex justify-between items-center mb-4">
-            <div className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Lịch trình tóm tắt</div>
-            {isModified && <span className="text-[10px] text-[#FF6B35] font-bold bg-orange-50 px-2 py-1 rounded-lg">Chưa lưu</span>}
+            <div className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">{t('tourDetail.summary', 'Lịch trình tóm tắt')}</div>
+            {isModified && <span className="text-[10px] text-[#FF6B35] font-bold bg-orange-50 px-2 py-1 rounded-lg">{t('tourDetail.unsaved', 'Chưa lưu')}</span>}
           </div>
           <div className="space-y-2">
             {data.stops.map((s, i) => (
@@ -655,7 +651,7 @@ export default function MyTourDetailPage() {
                 </button>
               </div>
             ))}
-            {data.stops.length === 0 && <p className="text-center text-sm text-gray-400 py-2">Chưa có điểm đến nào.</p>}
+            {data.stops.length === 0 && <p className="text-center text-sm text-gray-400 py-2">{t('tourDetail.no_stops', 'Chưa có điểm đến nào.')}</p>}
           </div>
         </div>
 
@@ -677,8 +673,9 @@ export default function MyTourDetailPage() {
 
   // ── Stops tab ────────────────────────────────────────────────────────────────
 
-  const renderStopsTab = (data: typeof processedTour, modalOpen: boolean) => {
-    if (!data?.stops?.length) return <div className="text-gray-400 text-center py-10">Chưa có dữ liệu lộ trình.</div>;
+  // Fix: pass t as argument
+  const renderStopsTab = (data: typeof processedTour, modalOpen: boolean, t: any) => {
+    if (!data?.stops?.length) return <div className="text-gray-400 text-center py-10">{t('tourDetail.stops.empty', 'Chưa có dữ liệu lộ trình.')}</div>;
 
     // Responsive: detect mobile
     const isMobile = typeof window !== 'undefined' && window.innerWidth <= 600;
@@ -760,8 +757,10 @@ export default function MyTourDetailPage() {
                             Đang tải nội dung…
                           </div>
                         ) : (
-                          <div className="ts-fade-in pb-[90px]">
-                            {/* ...existing stops list... */}
+                          <div className="ts-fade-in mb-2">
+                            <div className="text-[13px] text-gray-700 whitespace-pre-line mb-2 min-h-[20px]">
+                              {stop.desc || stop.Poi?.description || stop.Poi?.short?.vi || <span className="text-gray-400">Chưa có mô tả cho địa điểm này.</span>}
+                            </div>
                           </div>
                         )}
                         {/* Modal chọn POI - UI/UX nâng cấp */}
@@ -835,10 +834,37 @@ export default function MyTourDetailPage() {
                             )}
                        
                     
+                        <div className="flex gap-2 mt-2">
+                          {/* Directions */}
+                          <button
+                            onClick={e => {
+                              e.stopPropagation();
+                              // Lấy lat/lng từ stop
+                              let lat, lng;
+                              if (stop.Poi?.location?.coordinates && Array.isArray(stop.Poi.location.coordinates)) {
+                                lng = stop.Poi.location.coordinates[0];
+                                lat = stop.Poi.location.coordinates[1];
+                              } else {
+                                lat = stop.Poi?.lat ?? stop.Poi?.latitude;
+                                lng = stop.Poi?.lng ?? stop.Poi?.longitude;
+                              }
+                              if (lat && lng) {
+                                window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,'_blank');
+                              }
+                            }}
+                            className="flex flex-col items-center gap-1 py-2 px-4 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all active:scale-95 border border-blue-100 min-w-[90px]"
+                          >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M12 2l4 4-4 4M2 12l4-4 4 4m8 8l-4-4 4-4" />
+                              <circle cx="12" cy="12" r="10" />
+                            </svg>
+                            <span className="text-[11px] font-bold">Chỉ đường</span>
+                          </button>
+                          {/* Audio */}
                           <button
                             onClick={e => { e.stopPropagation(); handleListenStop(stop, i); }}
                             disabled={stop.contentLoading}
-                            className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl bg-violet-50 text-violet-600 hover:bg-violet-100 transition-all active:scale-95 border border-violet-100 disabled:opacity-50"
+                            className="flex flex-col items-center gap-1 py-2 px-4 rounded-xl bg-violet-50 text-violet-600 hover:bg-violet-100 transition-all active:scale-95 border border-violet-100 disabled:opacity-50 min-w-[90px]"
                           >
                             {stop.contentLoading
                               ? <div className="w-[18px] h-[18px] border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
@@ -854,7 +880,7 @@ export default function MyTourDetailPage() {
                           {/* Voucher */}
                           <button
                             onClick={e => { e.stopPropagation(); handleVoucherStop(stop); }}
-                            className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl bg-amber-50 text-amber-600 hover:bg-amber-100 transition-all active:scale-95 border border-amber-100"
+                            className="flex flex-col items-center gap-1 py-2 px-4 rounded-xl bg-amber-50 text-amber-600 hover:bg-amber-100 transition-all active:scale-95 border border-amber-100 min-w-[90px]"
                           >
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                               <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
@@ -862,6 +888,7 @@ export default function MyTourDetailPage() {
                             </svg>
                             <span className="text-[11px] font-bold">Voucher</span>
                           </button>
+                        </div>
                         </div>
                       </div>
                     </div>
@@ -965,21 +992,21 @@ export default function MyTourDetailPage() {
 
   if (!tourId) return (
     <AppShell showBottomNav={false}>
-      <div className="p-10 text-center text-gray-400">Không tìm thấy tour.</div>
+      <div className="p-10 text-center text-gray-400">{t('tourDetail.not_found', 'Không tìm thấy tour.')}</div>
     </AppShell>
   );
 
   if (loading && !processedTour) return (
     <AppShell showBottomNav={false}>
-      <div className="p-10 text-center text-gray-400 animate-pulse">Đang tải dữ liệu trải nghiệm...</div>
+      <div className="p-10 text-center text-gray-400 animate-pulse">{t('tourDetail.loading', 'Đang tải dữ liệu trải nghiệm...')}</div>
     </AppShell>
   );
 
   const TABS = [
-    { id: 'overview', label: 'Tổng quan' },
-    { id: 'stops',    label: 'Lộ trình' },
-    { id: 'ai',       label: '✨ AI Gợi ý' },
-    { id: 'reviews',  label: 'Đánh giá' },
+    { id: 'overview', label: t('tourDetail.tab.overview', 'Tổng quan') },
+    { id: 'stops',    label: t('tourDetail.tab.stops', 'Lộ trình') },
+    { id: 'ai',       label: t('tourDetail.tab.ai', '✨ AI Gợi ý') },
+    { id: 'reviews',  label: t('tourDetail.tab.reviews', 'Đánh giá') },
   ];
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -1009,9 +1036,9 @@ export default function MyTourDetailPage() {
               </button>
               <div className="flex-1 min-w-0">
                 <h1 className="text-[20px] md:text-[22px] font-extrabold text-gray-900 leading-tight truncate">
-                  {processedTour?.name ?? 'Lộ Trình'}
+                  {processedTour?.name ?? t('tourDetail.title', 'Lộ Trình')}
                 </h1>
-                <p className="text-[12px] text-gray-400 font-medium">Khám phá ẩm thực đường phố Sài Gòn</p>
+                <p className="text-[12px] text-gray-400 font-medium">{t('tourDetail.subtitle', 'Khám phá ẩm thực đường phố Sài Gòn')}</p>
               </div>
             </div>
 
@@ -1032,20 +1059,20 @@ export default function MyTourDetailPage() {
 
         {/* ── Body ── */}
         <div className="flex-1 p-4 md:p-6 max-w-[800px] mx-auto w-full">
-          {tab === 'overview' && renderOverviewTab(processedTour)}
-          {tab === 'stops'    && renderStopsTab(processedTour, modalOpen)}
+          {tab === 'overview' && renderOverviewTab(processedTour, t)}
+          {tab === 'stops'    && renderStopsTab(processedTour, modalOpen, t)}
           {tab === 'ai'       && (
             <div className="flex flex-col items-center justify-center py-20 text-center text-gray-400">
               <div className="text-4xl mb-3">✨</div>
-              <div className="font-bold text-gray-500">AI Tour Assistant đang bảo trì</div>
-              <div className="text-[13px] mt-1">Sẽ sớm trở lại!</div>
+              <div className="font-bold text-gray-500">{t('tourDetail.ai_maintenance', 'AI Tour Assistant đang bảo trì')}</div>
+              <div className="text-[13px] mt-1">{t('tourDetail.ai_soon', 'Sẽ sớm trở lại!')}</div>
             </div>
           )}
           {tab === 'reviews'  && (
             <div className="flex flex-col items-center justify-center py-20 text-center text-gray-400">
               <div className="text-4xl mb-3">⭐</div>
-              <div className="font-bold text-gray-500">Chưa có đánh giá</div>
-              <div className="text-[13px] mt-1">Hãy là người đầu tiên đánh giá tour này!</div>
+              <div className="font-bold text-gray-500">{t('tourDetail.no_reviews', 'Chưa có đánh giá')}</div>
+              <div className="text-[13px] mt-1">{t('tourDetail.first_review', 'Hãy là người đầu tiên đánh giá tour này!')}</div>
             </div>
           )}
         </div>
@@ -1069,7 +1096,7 @@ export default function MyTourDetailPage() {
                   <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
                 </svg>
               )}
-              Lưu
+              {t('tourDetail.save', 'Lưu')}
             </button>
 
             {/* Share */}
@@ -1085,7 +1112,7 @@ export default function MyTourDetailPage() {
                     <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
                   </svg>
               }
-              Chia sẻ
+              {t('tourDetail.share', 'Chia sẻ')}
             </button>
 
             {/* Start */}
@@ -1094,7 +1121,7 @@ export default function MyTourDetailPage() {
               className="flex-1 py-3 px-4 rounded-xl bg-[#FF6B35] hover:bg-[#F25A24] text-white font-bold text-[14px] shadow-lg shadow-[#FF6B35]/25 flex justify-center items-center gap-2 transition-all active:scale-[0.98]"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
-              Bắt đầu Hành trình
+              {t('tourDetail.start', 'Bắt đầu Hành trình')}
             </button>
           </div>
         </div>

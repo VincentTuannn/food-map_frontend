@@ -16,8 +16,8 @@ export async function getReviewsByPoi(poiId: string): Promise<Review[]> {
   return (res as ListResponse<Review[]>).data ?? (res as Review[])
 }
 
-export async function createOrUpdateReview(poiId: string, stars: number, text: string) {
-  return apiFetch(`/reviews`, { method: 'POST', json: { poiId, stars, text } })
+export async function createOrUpdateReview(review: { poi_id: string, rating: number, comment: string }) {
+  return apiFetch(`/reviews`, { method: 'POST', json: review })
 }
 
 export async function deleteReview(reviewId: string) {

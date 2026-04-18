@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell } from '../../shared/ui/AppShell';
 import { useAppStore } from '../../shared/store/appStore';
+import { useTranslation } from 'react-i18next';
 import {
   createMyTour,
   getMyTours,
@@ -15,6 +16,7 @@ import {
 } from 'lucide-react';
 
 export default function RoutePage() {
+  const { t } = useTranslation();
   const nav = useNavigate();
   const [params] = useSearchParams();
   const showToast = useAppStore((s) => s.showToast);
@@ -38,7 +40,7 @@ export default function RoutePage() {
       setMyTours(mine || []);
       setSavedTours(saved || []);
     } catch (err) {
-      showToast({ title: 'Không thể tải danh sách tour' });
+      showToast({ title: t('route.toast.load_error', 'Không thể tải danh sách tour') });
     } finally {
       setIsLoading(false);
     }
@@ -67,7 +69,7 @@ export default function RoutePage() {
 
   const handleCreateTour = async () => {
     if (!name.trim()) {
-      showToast({ title: 'Vui lòng nhập tên tour' });
+      showToast({ title: t('route.toast.name_required', 'Vui lòng nhập tên tour') });
       return;
     }
     setIsCreating(true);
@@ -77,20 +79,20 @@ export default function RoutePage() {
         description: description.trim() || undefined,
         visibility,
       });
-      showToast({ title: '✅ Đã tạo tour thành công' });
+      showToast({ title: t('route.toast.create_success', '✅ Đã tạo tour thành công') });
       setName('');
       setDescription('');
       loadTours();
     } catch (err) {
-      showToast({ title: 'Tạo tour thất bại' });
+      showToast({ title: t('route.toast.create_error', 'Tạo tour thất bại') });
     } finally {
       setIsCreating(false);
     }
   };
 
   const emptyMessage = activeTab === 'mine'
-    ? 'Bạn chưa có lộ trình nào. Hãy tạo tour mới bên trên.'
-    : 'Bạn chưa lưu tour nào. Hãy khám phá và lưu lại những tour yêu thích.';
+    ? t('route.empty.mine', 'Bạn chưa có lộ trình nào. Hãy tạo tour mới bên trên.')
+    : t('route.empty.saved', 'Bạn chưa lưu tour nào. Hãy khám phá và lưu lại những tour yêu thích.');
 
   // --- UI Components ---
   function HeroCard({ tour }: { tour: UserTour }) {
@@ -99,10 +101,16 @@ export default function RoutePage() {
         <div className="absolute inset-0 opacity-10 bg-[repeating-linear-gradient(45deg,rgba(255,255,255,0.15)_0px,transparent_1px,transparent_20px,rgba(255,255,255,0.15)_21px)] pointer-events-none" />
         <div className="absolute top-4 right-4 text-5xl opacity-80 select-none">🗺️</div>
         <div className="flex flex-col gap-2">
-          <span className="text-xs font-bold px-3 py-1 rounded-full bg-white/20 w-fit mb-1">{tour.visibility === 'PUBLIC' ? '⭐ Công khai' : tour.visibility === 'PRIVATE' ? '🔒 Riêng tư' : '🔗 Không công khai'}</span>
-          <h2 className="text-2xl font-extrabold mb-1 line-clamp-1">{tour.name || 'Tour không tên'}</h2>
+          <span className="text-xs font-bold px-3 py-1 rounded-full bg-white/20 w-fit mb-1">{
+            tour.visibility === 'PUBLIC'
+              ? t('route.visibility.public', '⭐ Công khai')
+              : tour.visibility === 'PRIVATE'
+                ? t('route.visibility.private', '🔒 Riêng tư')
+                : t('route.visibility.unlisted', '🔗 Không công khai')
+          }</span>
+          <h2 className="text-2xl font-extrabold mb-1 line-clamp-1">{tour.name || t('route.no_name', 'Tour không tên')}</h2>
           <div className="flex gap-4 text-sm opacity-90">
-            <span className="flex items-center gap-1"><Map className="w-4 h-4" /> {tour.poi_count || 0} điểm</span>
+            <span className="flex items-center gap-1"><Map className="w-4 h-4" /> {tour.poi_count || 0} {t('route.poi', 'điểm')}</span>
             <span className="flex items-center gap-1"><Calendar className="w-4 h-4" /> {new Date(tour.updated_at || tour.created_at || '2000-01-01').toLocaleDateString('vi-VN')}</span>
           </div>
         </div>
@@ -115,20 +123,20 @@ export default function RoutePage() {
       <div className="group bg-white rounded-2xl p-5 shadow-md hover:shadow-lg border border-white/80 transition-all flex flex-col min-h-[210px] relative overflow-hidden">
         <HeroCard tour={tour} />
         <div className="flex-1">
-          <p className="text-gray-500 text-sm mt-2 line-clamp-2 min-h-[44px] font-medium">{tour.description || 'Chưa có mô tả'}</p>
+          <p className="text-gray-500 text-sm mt-2 line-clamp-2 min-h-[44px] font-medium">{tour.description || t('route.no_desc', 'Chưa có mô tả')}</p>
         </div>
         <div className="flex gap-2 mt-5">
           <button
             onClick={() => nav(`/tourist/tours/${tour.id}`)}
             className="flex-1 bg-gradient-to-r from-orange-500 to-amber-400 text-white py-2.5 rounded-xl font-bold hover:from-orange-600 hover:to-amber-500 transition shadow group-hover:scale-[1.03] flex items-center justify-center gap-1"
           >
-            <BookOpen className="w-4 h-4" /> Quản lý tour
+            <BookOpen className="w-4 h-4" /> {t('route.manage', 'Quản lý tour')}
           </button>
           <button
             onClick={() => nav(`/tourist/map?tourId=${tour.id}`)}
             className="flex-1 border border-gray-300 py-2.5 rounded-xl font-bold text-orange-600 hover:bg-orange-50 transition group-hover:scale-[1.03] flex items-center justify-center gap-1"
           >
-            <Share className="w-4 h-4" /> Xem bản đồ
+            <Share className="w-4 h-4" /> {t('route.open_map', 'Xem bản đồ')}
           </button>
         </div>
       </div>
@@ -150,7 +158,7 @@ export default function RoutePage() {
             }`}
           >
             <Map className="w-5 h-5" />
-            Lộ trình của tôi
+            {t('route.tab.mine', 'Lộ trình của tôi')}
           </button>
           <button
             onClick={() => setActiveTab('saved')}
@@ -161,7 +169,7 @@ export default function RoutePage() {
             }`}
           >
             <Bookmark className="w-5 h-5" />
-            Tour đã lưu
+            {t('route.tab.saved', 'Tour đã lưu')}
           </button>
         </div>
 
@@ -173,20 +181,20 @@ export default function RoutePage() {
                 <Plus className="w-6 h-6 text-orange-500" />
               </div>
               <div>
-                <h2 className="font-bold text-xl text-orange-700">Tạo tour mới</h2>
-                <p className="text-sm text-gray-500">Xây dựng hành trình khám phá ẩm thực của riêng bạn</p>
+                <h2 className="font-bold text-xl text-orange-700">{t('route.create.title', 'Tạo tour mới')}</h2>
+                <p className="text-sm text-gray-500">{t('route.create.subtitle', 'Xây dựng hành trình khám phá ẩm thực của riêng bạn')}</p>
               </div>
             </div>
             <div className="space-y-4">
               <input
                 type="text"
-                placeholder="Tên tour (ví dụ: Hành trình phở Hà Nội)"
+                placeholder={t('route.create.name_placeholder', 'Tên tour (ví dụ: Hành trình phở Hà Nội)')}
                 className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-400 font-semibold text-gray-800 bg-white"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
               <textarea
-                placeholder="Mô tả (tùy chọn)"
+                placeholder={t('route.create.desc_placeholder', 'Mô tả (tùy chọn)')}
                 rows={2}
                 className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-400 resize-y font-medium text-gray-700 bg-white"
                 value={description}
@@ -197,16 +205,16 @@ export default function RoutePage() {
                 value={visibility}
                 onChange={(e) => setVisibility(e.target.value as TourVisibility)}
               >
-                <option value="PRIVATE"> <Lock className="inline w-4 h-4 mr-1" /> Riêng tư - Chỉ mình tôi</option>
-                <option value="PUBLIC"> <Globe className="inline w-4 h-4 mr-1" /> Công khai</option>
-                <option value="UNLISTED"> <Link2 className="inline w-4 h-4 mr-1" /> Không công khai (có link)</option>
+                <option value="PRIVATE">{t('route.create.private', 'Riêng tư - Chỉ mình tôi')}</option>
+                <option value="PUBLIC">{t('route.create.public', 'Công khai')}</option>
+                <option value="UNLISTED">{t('route.create.unlisted', 'Không công khai (có link)')}</option>
               </select>
               <button
                 onClick={handleCreateTour}
                 disabled={isCreating || !name.trim()}
                 className="w-full bg-gradient-to-r from-orange-500 to-amber-400 hover:from-orange-600 hover:to-amber-500 disabled:bg-orange-300 text-white font-bold py-3.5 rounded-2xl transition flex items-center justify-center gap-2 shadow-md"
               >
-                {isCreating ? 'Đang tạo...' : <><Plus className="w-5 h-5" /> Tạo tour ngay</>}
+                {isCreating ? t('route.create.loading', 'Đang tạo...') : <><Plus className="w-5 h-5" /> {t('route.create.button', 'Tạo tour ngay')}</>}
               </button>
             </div>
           </div>
@@ -217,7 +225,7 @@ export default function RoutePage() {
           <div className="flex-1 relative">
             <input
               type="text"
-              placeholder="Tìm tour theo tên hoặc mô tả..."
+              placeholder={t('route.search.placeholder', 'Tìm tour theo tên hoặc mô tả...')}
               className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-400 font-medium text-gray-700"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -225,7 +233,7 @@ export default function RoutePage() {
             <span className="absolute left-4 top-3.5 text-gray-400"><Search className="w-5 h-5" /></span>
           </div>
           <span className="text-sm text-gray-500 self-center whitespace-nowrap">
-            {filteredTours.length} tour
+            {filteredTours.length} {t('route.tour', 'tour')}
           </span>
         </div>
 
