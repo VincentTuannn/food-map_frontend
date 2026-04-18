@@ -139,12 +139,12 @@ export function AdminPois() {
   };
 
   return (
-    <div style={{ animation: 'fadeIn 0.3s', display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div className="animate-fadeIn flex flex-col gap-5">
       
       {/* ===== PHẦN 1: BẢN ĐỒ MAPBOX ===== */}
-      <div className="card" style={{ height: '400px', overflow: 'hidden', border: '1px solid #333', position: 'relative' }}>
+      <div className="card h-[400px] overflow-hidden border border-[#333] relative">
         {!MAPBOX_TOKEN ? (
-          <div style={{ padding: 20, color: '#ff4d4f', textAlign: 'center', marginTop: 100 }}>
+          <div className="p-5 text-[#ff4d4f] text-center mt-24">
              ⚠️ Không tìm thấy Mapbox Token.
           </div>
         ) : (
@@ -212,69 +212,62 @@ export function AdminPois() {
 
       {/* ===== PHẦN 2: BỘ LỌC ===== */}
       <div className="card cardPad">
-        <h2 style={{ margin: '0 0 20px 0', color: '#8B7355', fontSize: 24, fontWeight: 800 }}>📍 Duyệt địa điểm (POIs)</h2>
-        <div style={{ display: 'flex', gap: 12 }}>
+        <h2 className="mb-5 text-[#8B7355] text-2xl font-extrabold">📍 Duyệt địa điểm (POIs)</h2>
+        <div className="flex gap-3">
           <input 
-            className="input" placeholder="Tìm tên địa điểm..." 
-            style={{ flex: 1 }}
+            className="input flex-1" placeholder="Tìm tên địa điểm..."
             value={searchName} onChange={e => setSearchName(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && loadPois()}
           />
-          <select className="select" style={{ width: 180 }} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+          <select className="select w-44" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
             <option value="">Tất cả trạng thái</option>
             <option value="PENDING">🕒 Chờ duyệt</option>
             <option value="ACTIVE">✅ Đã duyệt</option>
             <option value="REJECTED">❌ Từ chối</option>
             <option value="INACTIVE">Ẩn (Không lên Map)</option>
           </select>
-          <button className="btn btnPrimary" onClick={loadPois} style={{ padding: '0 25px' }}>🔍 Tìm</button>
+          <button className="btn btnPrimary px-6" onClick={loadPois}>🔍 Tìm</button>
         </div>
       </div>
 
       {/* ===== PHẦN 3: BẢNG DANH SÁCH ===== */}
       <div className="card cardPad">
-        <table style={{ width: '100%', borderCollapse: 'collapse', color: '#8B7355', textAlign: 'left' }}>
+        <table className="w-full border-collapse text-[#8B7355] text-left">
           <thead>
-            <tr style={{ color: '#666', borderBottom: '1px solid #333' }}>
-              <th style={{ padding: 15 }}>Địa điểm / Tọa độ</th>
-              <th style={{ padding: 15 }}>Chủ sở hữu</th>
-              <th style={{ padding: 15 }}>Trạng thái</th>
-              <th style={{ padding: 15, textAlign: 'right' }}>Thao tác</th>
+            <tr className="text-[#666] border-b border-[#333]">
+              <th className="p-4">Địa điểm / Tọa độ</th>
+              <th className="p-4">Chủ sở hữu</th>
+              <th className="p-4">Trạng thái</th>
+              <th className="p-4 text-right">Thao tác</th>
             </tr>
           </thead>
           <tbody>
-            {isFetching ? (<tr><td colSpan={4} style={{ textAlign: 'center', padding: 40 }}>⏳ Đang tải...</td></tr>) : 
-             pois.length === 0 ? (<tr><td colSpan={4} style={{ textAlign: 'center', padding: 40, color: '#888' }}>Không có dữ liệu.</td></tr>) :
-             pois.map(poi => (
-              <tr 
-                key={poi.id} 
-                style={{ 
-                  borderBottom: '1px solid #222',
-                  background: selectedPoi?.id === poi.id ? 'rgba(123, 44, 191, 0.1)' : 'transparent',
-                  cursor: 'pointer',
-                  transition: 'background 0.2s'
-                }}
+            {isFetching ? (
+              <tr><td colSpan={4} className="text-center p-10">⏳ Đang tải...</td></tr>
+            ) : pois.length === 0 ? (
+              <tr><td colSpan={4} className="text-center p-10 text-[#888]">Không có dữ liệu.</td></tr>
+            ) : pois.map(poi => (
+              <tr
+                key={poi.id}
+                className={`border-b border-[#222] cursor-pointer transition-colors ${selectedPoi?.id === poi.id ? 'bg-[#7b2cbf1a]' : ''}`}
                 onClick={() => handleFlyToPoi(poi)}
               >
-                <td style={{ padding: 15 }}>
-                  <div style={{ fontWeight: 700, fontSize: 15 }}>{poi.name}</div>
-                  <div style={{ fontSize: 12, color: '#9D4EDD', marginTop: 4 }}>
-                    🎯 {poi.decodedLat}, {poi.decodedLng}
-                  </div>
+                <td className="p-4">
+                  <div className="font-bold text-[15px]">{poi.name}</div>
+                  <div className="text-xs text-[#9D4EDD] mt-1">🎯 {poi.decodedLat}, {poi.decodedLng}</div>
                 </td>
-                <td style={{ padding: 15, color: '#aaa' }}>{poi.Merchant?.business_name || 'N/A'}</td>
-                <td style={{ padding: 15 }}>
-                  <span className="pill" style={{ background: getStatusColor(poi.status), color: '#fff', fontSize: 10 }}>{poi.status}</span>
+                <td className="p-4 text-[#aaa]">{poi.Merchant?.business_name || 'N/A'}</td>
+                <td className="p-4">
+                  <span className={`pill text-white text-[10px] ${poi.status === 'ACTIVE' ? 'bg-green-600' : poi.status === 'PENDING' ? 'bg-yellow-400' : poi.status === 'REJECTED' ? 'bg-red-500' : 'bg-[#888]'}`}>{poi.status}</span>
                 </td>
-                <td style={{ padding: 15, textAlign: 'right' }}>
-                  <button 
-                    className="btn btnGhost" 
-                    style={{ padding: '6px 12px', fontSize: 12, marginRight: 8 }} 
-                    onClick={(e) => { e.stopPropagation(); setSelectedPoi(poi); setIsModalOpen(true); }}
+                <td className="p-4 text-right">
+                  <button
+                    className="btn btnGhost py-1.5 px-3 text-xs mr-2"
+                    onClick={e => { e.stopPropagation(); setSelectedPoi(poi); setIsModalOpen(true); }}
                   >
                     👁️ Xem & Duyệt
                   </button>
-                  <button className="btn" style={{ color: '#ff4d4f' }} onClick={(e) => { e.stopPropagation(); handleDeletePoi(poi.id); }}>🗑️</button>
+                  <button className="btn text-[#ff4d4f]" onClick={e => { e.stopPropagation(); handleDeletePoi(poi.id); }}>🗑️</button>
                 </td>
               </tr>
             ))}
@@ -284,48 +277,42 @@ export function AdminPois() {
 
       {/* ===== PHẦN 4: MODAL CHI TIẾT ===== */}
       {isModalOpen && selectedPoi && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)' }}>
-          <div style={{ width: 650, background: '#1E1E2D', borderRadius: 12, border: '1px solid #444', overflow: 'hidden', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
-            <div className="rowBetween" style={{ padding: '20px 24px', borderBottom: '1px solid #333' }}>
-              <h3 style={{ margin: 0, color: '#fff' }}>Chi tiết địa điểm: {selectedPoi.name}</h3>
-              <button onClick={() => setIsModalOpen(false)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 20 }}>✕</button>
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black bg-opacity-80">
+          <div className="w-[650px] bg-[#1E1E2D] rounded-xl border border-[#444] overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="rowBetween px-6 py-5 border-b border-[#333]">
+              <h3 className="m-0 text-white">Chi tiết địa điểm: {selectedPoi.name}</h3>
+              <button onClick={() => setIsModalOpen(false)} className="bg-none border-none text-white text-2xl">✕</button>
             </div>
-            
-            <div style={{ padding: 24, overflowY: 'auto', flex: 1 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
+            <div className="p-6 overflow-y-auto flex-1">
+              <div className="grid grid-cols-2 gap-5 mb-5">
                 <div>
-                  <label style={{ color: '#888', fontSize: 12 }}>Tọa độ thực tế</label>
-                  <div style={{ color: '#FFCC00', fontWeight: 700, fontSize: 15 }}>
-                    {selectedPoi.decodedLat}, {selectedPoi.decodedLng}
-                  </div>
+                  <label className="text-[#888] text-xs">Tọa độ thực tế</label>
+                  <div className="text-[#FFCC00] font-bold text-[15px]">{selectedPoi.decodedLat}, {selectedPoi.decodedLng}</div>
                 </div>
                 <div>
-                  <label style={{ color: '#888', fontSize: 12 }}>Cơ sở sở hữu</label>
-                  <div style={{ color: 'var(--brand)' }}>{selectedPoi.Merchant?.business_name || 'Hệ thống'}</div>
+                  <label className="text-[#888] text-xs">Cơ sở sở hữu</label>
+                  <div className="text-brand">{selectedPoi.Merchant?.business_name || 'Hệ thống'}</div>
                 </div>
               </div>
-
-              <div style={{ padding: 15, background: '#151521', borderRadius: 8, marginBottom: 20 }}>
-                <h4 style={{ margin: '0 0 10px 0', color: '#C77DFF' }}>Nội dung đa ngôn ngữ</h4>
+              <div className="p-4 bg-[#151521] rounded-lg mb-5">
+                <h4 className="mb-2.5 text-[#C77DFF]">Nội dung đa ngôn ngữ</h4>
                 {selectedPoi.PoiContents?.length > 0 ? selectedPoi.PoiContents.map((content: any) => (
-                  <div key={content.id} style={{ marginBottom: 10, fontSize: 13, borderBottom: '1px solid #2A2A3C', paddingBottom: 5 }}>
-                    <b style={{ color: '#fff' }}>[{content.language_code}]</b>: {content.description.substring(0, 100)}...
+                  <div key={content.id} className="mb-2.5 text-[13px] border-b border-[#2A2A3C] pb-1.5">
+                    <b className="text-white">[{content.language_code}]</b>: {content.description.substring(0, 100)}...
                   </div>
-                )) : <div style={{ color: '#888' }}>Không có dữ liệu nội dung.</div>}
+                )) : <div className="text-[#888]">Không có dữ liệu nội dung.</div>}
               </div>
-
-              <h4 style={{ margin: '0 0 10px 0', color: '#FFCC00' }}>⭐ Đánh giá mới nhất</h4>
+              <h4 className="mb-2.5 text-[#FFCC00]">⭐ Đánh giá mới nhất</h4>
               {selectedPoi.Reviews?.length > 0 ? selectedPoi.Reviews.map((r: any) => (
-                <div key={r.id} style={{ fontSize: 12, color: '#aaa', padding: '8px 0', borderBottom: '1px dotted #333' }}>
-                  <b style={{ color: '#fff' }}>{r.rating} sao:</b> {r.comment}
+                <div key={r.id} className="text-xs text-[#aaa] py-2 border-b border-dotted border-[#333]">
+                  <b className="text-white">{r.rating} sao:</b> {r.comment}
                 </div>
-              )) : <div style={{ color: '#555', fontSize: 12 }}>Chưa có đánh giá nào.</div>}
+              )) : <div className="text-[#555] text-xs">Chưa có đánh giá nào.</div>}
             </div>
-
-            <div style={{ padding: 24, background: '#161622', borderTop: '1px solid #333', display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-               <button className="btn" style={{ background: '#FF3B30', color: '#fff' }} onClick={() => handleUpdateStatus(selectedPoi.id, 'REJECTED')}>❌ Từ chối</button>
-               <button className="btn" style={{ background: '#888', color: '#fff' }} onClick={() => handleUpdateStatus(selectedPoi.id, 'INACTIVE')}>Ẩn</button>
-               <button className="btn btnPrimary" onClick={() => handleUpdateStatus(selectedPoi.id, 'ACTIVE')}>✅ Duyệt hoạt động</button>
+            <div className="p-6 bg-[#161622] border-t border-[#333] flex gap-3 justify-end">
+              <button className="btn bg-[#FF3B30] text-white" onClick={() => handleUpdateStatus(selectedPoi.id, 'REJECTED')}>❌ Từ chối</button>
+              <button className="btn bg-[#888] text-white" onClick={() => handleUpdateStatus(selectedPoi.id, 'INACTIVE')}>Ẩn</button>
+              <button className="btn btnPrimary" onClick={() => handleUpdateStatus(selectedPoi.id, 'ACTIVE')}>✅ Duyệt hoạt động</button>
             </div>
           </div>
         </div>

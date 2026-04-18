@@ -30,54 +30,55 @@ export function FinanceSection({ profile }: { profile: MerchantProfile | null })
 
   return (
     <>
-      <div className="md-stagger">
-        <div className="md-card">
-          <div className="md-card-label">Gói hiện tại</div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="flex flex-col gap-8">
+        {/* Current Plan Card */}
+        <div className="rounded-2xl bg-white/5 border border-[#f3f3f3] shadow p-7 flex flex-col gap-4">
+          <div className="text-xs uppercase tracking-widest text-amber-600 font-bold mb-2">Gói hiện tại</div>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <div className="md-card-title">Growth Plan</div>
-              <div className="md-card-sub">Gia hạn tự động vào ngày 15/05/2025</div>
+              <div className="font-playfair text-lg font-semibold text-white">Growth Plan</div>
+              <div className="text-sm text-[#bbb]">Gia hạn tự động vào ngày 15/05/2025</div>
             </div>
             <StatusBadge status={profile?.subscription_status ?? 'ACTIVE'} />
           </div>
         </div>
 
-        <div className="md-grid-3 md-section-gap">
+        {/* Plans Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {plans.map((plan) => (
-            <div key={plan.name} className={`tier-card${plan.featured ? ' featured' : ''}`}>
-              {plan.featured && <div className="badge badge-pending" style={{ marginBottom: 10 }}>Phổ biến nhất</div>}
-              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--muted)' }}>{plan.name}</div>
-              <div className="tier-price">{plan.price}<span style={{ fontSize: 14, fontWeight: 400, color: 'var(--muted)' }}>đ</span></div>
-              {plan.period && <div className="tier-period">{plan.period}</div>}
-              <ul className="tier-features">
-                {plan.features.map((f) => <li key={f}>{f}</li>)}
+            <div key={plan.name} className={`rounded-2xl border shadow p-7 flex flex-col items-center gap-3 ${plan.featured ? 'border-amber-400 bg-gradient-to-br from-amber-50/10 to-amber-100/0' : 'border-[#f3f3f3] bg-white/5'}` }>
+              {plan.featured && <div className="mb-2 px-3 py-1 rounded-full bg-yellow-100 text-yellow-800 text-xs font-bold">Phổ biến nhất</div>}
+              <div className="text-base font-semibold text-amber-700">{plan.name}</div>
+              <div className="text-3xl font-extrabold text-[#B85C38]">{plan.price}<span className="text-base font-normal text-[#8B7355]">đ</span></div>
+              {plan.period && <div className="text-xs text-[#8B7355]">{plan.period}</div>}
+              <ul className="w-full mt-2 mb-4 space-y-1 text-sm text-[#4A3728]">
+                {plan.features.map((f) => <li key={f} className="flex items-center gap-2"><span className="text-green-500">✔</span>{f}</li>)}
               </ul>
-              <button className={plan.featured ? 'btn-primary' : 'btn-secondary'} style={{ width: '100%' }}>
-                {plan.featured ? 'Gói hiện tại' : 'Chọn gói'}
-              </button>
+              <button className={`w-full rounded-full py-2.5 font-semibold transition ${plan.featured ? 'bg-amber-500 text-white hover:bg-amber-600' : 'bg-white text-[#8B7355] border border-[#E8D9C5] hover:bg-[#F5EDE0]'}`}>{plan.featured ? 'Gói hiện tại' : 'Chọn gói'}</button>
             </div>
           ))}
         </div>
 
-        <div className="md-card md-section-gap">
-          <div className="md-card-label">Quảng cáo</div>
-          <div className="md-card-title" style={{ marginBottom: 6 }}>Sponsored POI</div>
-          <div className="md-card-sub" style={{ marginBottom: 18 }}>Nạp tiền để ưu tiên hiển thị POI của bạn trên bản đồ khi khách ở gần.</div>
-          <div className="md-grid-2">
-            <div className="md-field">
-              <label className="md-label">Số tiền nạp (VNĐ)</label>
-              <input className="md-input" type="number" placeholder="100000" value={amount} onChange={e => setAmount(e.target.value)} />
+        {/* Sponsored POI Card */}
+        <div className="rounded-2xl bg-white/5 border border-[#f3f3f3] shadow p-7 flex flex-col gap-4">
+          <div className="text-xs uppercase tracking-widest text-amber-600 font-bold mb-2">Quảng cáo</div>
+          <div className="font-playfair text-lg font-semibold text-white mb-1">Sponsored POI</div>
+          <div className="text-sm text-[#bbb] mb-4">Nạp tiền để ưu tiên hiển thị POI của bạn trên bản đồ khi khách ở gần.</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-2">
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-semibold text-[#8B7355]">Số tiền nạp (VNĐ)</label>
+              <input className="rounded-lg border border-[#E8D9C5] px-4 py-2 bg-white/80 text-[#4A3728] focus:outline-none focus:ring-2 focus:ring-amber-400" type="number" placeholder="100000" value={amount} onChange={e => setAmount(e.target.value)} />
             </div>
-            <div className="md-field">
-              <label className="md-label">Phương thức thanh toán</label>
-              <select className="md-select">
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-semibold text-[#8B7355]">Phương thức thanh toán</label>
+              <select className="rounded-lg border border-[#E8D9C5] px-4 py-2 bg-white/80 text-[#4A3728] focus:outline-none focus:ring-2 focus:ring-amber-400">
                 <option>MoMo</option>
                 <option>VNPay</option>
                 <option>Thẻ quốc tế (Stripe)</option>
               </select>
             </div>
           </div>
-          <button className="btn-primary" style={{ marginTop: 14 }} onClick={handlePayService}>💳 Nạp tiền ngay</button>
+          <button className="w-full rounded-full py-3 mt-2 bg-amber-500 text-white font-bold hover:bg-amber-600 transition" onClick={handlePayService}>💳 Nạp tiền ngay</button>
         </div>
       </div>
     </>

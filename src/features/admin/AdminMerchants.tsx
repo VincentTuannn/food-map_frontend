@@ -69,19 +69,18 @@ export function AdminMerchants() {
   };
 
   return (
-    <div style={{ animation: 'fadeIn 0.3s' }}>
+    <div className="animate-fadeIn">
       {/* HEADER & FILTER */}
-      <div className="card cardPad" style={{ marginBottom: 20 }}>
-        <h2 style={{ margin: '0 0 20px 0', color: '#8B7355', fontSize: 24, fontWeight: 800 }}>🤝 Đối tác (Merchants)</h2>
-        <div style={{ display: 'flex', gap: 12 }}>
+      <div className="card cardPad mb-5">
+        <h2 className="mb-5 text-[#8B7355] text-2xl font-extrabold">🤝 Đối tác (Merchants)</h2>
+        <div className="flex gap-3">
           <input 
-            className="input" placeholder="Tìm theo Tên hoặc Email (Tự động tìm)..." 
-            style={{ flex: 1 }}
+            className="input flex-1" placeholder="Tìm theo Tên hoặc Email (Tự động tìm)..."
             value={searchTerm} 
             onChange={e => setSearchTerm(e.target.value)}
           />
           <select 
-            className="select" style={{ width: 200 }} 
+            className="select w-52" 
             value={filterSub} 
             onChange={e => setFilterSub(e.target.value)}
           >
@@ -90,45 +89,42 @@ export function AdminMerchants() {
             <option value="SUSPENDED">⚠️ Tạm ngưng (Suspended)</option>
             <option value="INACTIVE">⚪ Ngừng kích hoạt (Inactive)</option>
           </select>
-          {/* Đã ẩn nút "Tìm kiếm" vì hệ thống tự động chạy Debounce */}
         </div>
       </div>
 
       {/* MERCHANTS TABLE */}
       <div className="card cardPad">
-        <table style={{ width: '100%', borderCollapse: 'collapse', color: '#8B7355', textAlign: 'left' }}>
+        <table className="w-full border-collapse text-[#8B7355] text-left">
           <thead>
-            <tr style={{ color: '#666', borderBottom: '1px solid #333' }}>
-              <th style={{ padding: 12 }}>Đối tác / Đại diện</th>
-              <th style={{ padding: 12 }}>Tình trạng Hội viên</th>
-              <th style={{ padding: 12 }}>Doanh thu (Ước tính)</th>
-              <th style={{ padding: 12, textAlign: 'right' }}>Thao tác</th>
+            <tr className="text-[#666] border-b border-[#333]">
+              <th className="p-3">Đối tác / Đại diện</th>
+              <th className="p-3">Tình trạng Hội viên</th>
+              <th className="p-3">Doanh thu (Ước tính)</th>
+              <th className="p-3 text-right">Thao tác</th>
             </tr>
           </thead>
           <tbody>
-            {isFetching ? (<tr><td colSpan={4} style={{ textAlign: 'center', padding: 40 }}>⏳ Đang truy xuất danh sách...</td></tr>) : 
-             merchants.length === 0 ? (<tr><td colSpan={4} style={{ textAlign: 'center', padding: 40, color: '#666' }}>Không tìm thấy đối tác nào.</td></tr>) :
-             merchants.map(m => (
-              <tr key={m.id} style={{ borderBottom: '1px solid #222' }}>
-                <td style={{ padding: 12 }}>
-                  <div style={{ fontWeight: 700, color: 'var(--brand)' }}>{m.business_name || 'N/A'}</div>
-                  <div style={{ fontSize: 12, color: '#aaa' }}>{m.email}</div>
+            {isFetching ? (
+              <tr><td colSpan={4} className="text-center p-10">⏳ Đang truy xuất danh sách...</td></tr>
+            ) : merchants.length === 0 ? (
+              <tr><td colSpan={4} className="text-center p-10 text-[#666]">Không tìm thấy đối tác nào.</td></tr>
+            ) : merchants.map(m => (
+              <tr key={m.id} className="border-b border-[#222]">
+                <td className="p-3">
+                  <div className="font-bold text-brand">{m.business_name || 'N/A'}</div>
+                  <div className="text-xs text-[#aaa]">{m.email}</div>
                 </td>
-                <td style={{ padding: 12 }}>
-                  <span style={{ 
-                    fontSize: 10, fontWeight: 800, padding: '4px 8px', borderRadius: 4,
-                    background: m.subscription_status === 'ACTIVE' ? 'rgba(0,200,83,0.1)' : 'rgba(255,59,48,0.1)',
-                    color: m.subscription_status === 'ACTIVE' ? '#00C853' : '#FF3B30'
-                  }}>
+                <td className="p-3">
+                  <span className={`text-[10px] font-extrabold px-2 py-1 rounded ${m.subscription_status === 'ACTIVE' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-500'}`}>
                     {m.subscription_status}
                   </span>
                 </td>
-                <td style={{ padding: 12, fontWeight: 600 }}>
-                   {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(m.total_revenue || 0)}
+                <td className="p-3 font-semibold">
+                  {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(m.total_revenue || 0)}
                 </td>
-                <td style={{ padding: 12, textAlign: 'right' }}>
-                  <button className="btn btnGhost" style={{ fontSize: 12 }} onClick={() => { setSelectedMerchant(m); setIsModalOpen(true); }}>👁️ Chi tiết</button>
-                  <button className="btn" style={{ color: '#ff4d4f' }} onClick={() => handleDeleteMerchant(m.id)}>🗑️</button>
+                <td className="p-3 text-right">
+                  <button className="btn btnGhost text-xs" onClick={() => { setSelectedMerchant(m); setIsModalOpen(true); }}>👁️ Chi tiết</button>
+                  <button className="btn text-[#ff4d4f]" onClick={() => handleDeleteMerchant(m.id)}>🗑️</button>
                 </td>
               </tr>
             ))}
@@ -138,38 +134,31 @@ export function AdminMerchants() {
 
       {/* MODAL CHI TIẾT & CẬP NHẬT TRẠNG THÁI (isModalOpen) */}
       {isModalOpen && selectedMerchant && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)' }}>
-          <div style={{ width: 500, background: '#1E1E2D', borderRadius: 12, border: '1px solid #444', overflow: 'hidden' }}>
-            <div className="rowBetween" style={{ padding: '20px 24px', borderBottom: '1px solid #333' }}>
-              <h3 style={{ margin: 0, color: '#fff' }}>Hồ sơ Đối tác</h3>
-              <button onClick={() => setIsModalOpen(false)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 20 }}>✕</button>
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black bg-opacity-80">
+          <div className="w-[500px] bg-[#1E1E2D] rounded-xl border border-[#444] overflow-hidden">
+            <div className="rowBetween px-6 py-5 border-b border-[#333]">
+              <h3 className="m-0 text-white">Hồ sơ Đối tác</h3>
+              <button onClick={() => setIsModalOpen(false)} className="bg-none border-none text-white text-2xl">✕</button>
             </div>
-            
-            <div style={{ padding: 24 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 25 }}>
-                <div style={{ background: '#151521', padding: 15, borderRadius: 8, textAlign: 'center' }}>
-                  <div style={{ color: '#888', fontSize: 12, marginBottom: 5 }}>Số lượng POIs</div>
-                  <div style={{ color: '#fff', fontSize: 24, fontWeight: 800 }}>{selectedMerchant.poi_count || 0}</div>
+            <div className="p-6">
+              <div className="grid grid-cols-2 gap-5 mb-6">
+                <div className="bg-[#151521] p-4 rounded-lg text-center">
+                  <div className="text-xs text-[#888] mb-1.5">Số lượng POIs</div>
+                  <div className="text-white text-2xl font-extrabold">{selectedMerchant.poi_count || 0}</div>
                 </div>
-                <div style={{ background: '#151521', padding: 15, borderRadius: 8, textAlign: 'center' }}>
-                  <div style={{ color: '#888', fontSize: 12, marginBottom: 5 }}>Doanh thu tổng</div>
-                  <div style={{ color: '#00C853', fontSize: 20, fontWeight: 800 }}>{new Intl.NumberFormat('vi-VN').format(selectedMerchant.total_revenue || 0)}đ</div>
+                <div className="bg-[#151521] p-4 rounded-lg text-center">
+                  <div className="text-xs text-[#888] mb-1.5">Doanh thu tổng</div>
+                  <div className="text-green-500 text-xl font-extrabold">{new Intl.NumberFormat('vi-VN').format(selectedMerchant.total_revenue || 0)}đ</div>
                 </div>
               </div>
-
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ color: '#aaa', fontSize: 13, display: 'block', marginBottom: 10 }}>Thay đổi trạng thái hội viên:</label>
-                <div style={{ display: 'flex', gap: 10 }}>
+              <div className="mb-5">
+                <label className="text-[#aaa] text-sm block mb-2.5">Thay đổi trạng thái hội viên:</label>
+                <div className="flex gap-2.5">
                   {['ACTIVE', 'SUSPENDED', 'INACTIVE'].map(status => (
-                    <button 
+                    <button
                       key={status}
                       disabled={isProcessing}
-                      className="btn"
-                      style={{ 
-                        flex: 1, fontSize: 11,
-                        background: selectedMerchant.subscription_status === status ? 'var(--brand)' : '#2A2A3C',
-                        color: '#fff', border: 'none'
-                      }}
+                      className={`btn flex-1 text-[11px] ${selectedMerchant.subscription_status === status ? 'bg-brand text-white border-none' : 'bg-[#2A2A3C] text-white border-none'}`}
                       onClick={() => handleUpdateSubscription(selectedMerchant.id, status)}
                     >
                       {status}
@@ -177,8 +166,7 @@ export function AdminMerchants() {
                   ))}
                 </div>
               </div>
-              
-              <div style={{ color: '#555', fontSize: 11, fontStyle: 'italic' }}>
+              <div className="text-[#555] text-[11px] italic">
                 * Lưu ý: Trạng thái SUSPENDED sẽ tạm ẩn tất cả các POIs của đối tác này khỏi ứng dụng người dùng.
               </div>
             </div>

@@ -12,7 +12,7 @@ import { PromotionsSection } from './sections/PromotionsSection'
 import { AnalyticsSection } from './sections/AnalyticsSection'
 import { FinanceSection } from './sections/FinanceSection'
 import { ProfileSection } from './sections/ProfileSection'
-import './merchantStyle.css'
+
 
 export function MerchantDashboard() {
   const navigate = useNavigate()
@@ -51,37 +51,46 @@ export function MerchantDashboard() {
 
   return (
     <>
-      <div className="md-root">
-        <aside className="md-sidebar">
-          <div className="md-logo">
-            <div className="md-logo-eyebrow">Food Tour HCM</div>
-            <div className="md-logo-name">{profile?.business_name ?? 'Merchant Portal'}</div>
+
+      <div className="flex min-h-screen bg-[#181820]">
+        {/* Sidebar */}
+        <aside className="hidden md:flex flex-col w-64 bg-[#23232e] border-r border-[#2a2a3c] py-6 px-0">
+          <div className="flex flex-col items-center mb-8">
+            <div className="uppercase text-[10px] tracking-[2.5px] text-[#f59e0b] mb-1 font-bold">Food Tour HCM</div>
+            <div className="font-playfair text-lg text-[#FFF9F0] font-semibold">{profile?.business_name ?? 'Merchant Portal'}</div>
           </div>
-          <nav className="md-nav">
-            <div className="md-nav-section">Chính</div>
+          <nav className="flex-1 px-2">
+            <div className="text-[10px] tracking-[2px] uppercase text-[#fff9f04d] px-5 mb-1">Chính</div>
             {SECTIONS.map((s) => (
-              <button key={s.id} className={`md-nav-item${section === s.id ? ' active' : ''}`} onClick={() => setSection(s.id)}>
-                <span className="md-nav-icon">{s.icon}</span>
+              <button
+                key={s.id}
+                className={`flex items-center gap-2 w-full px-5 py-2.5 rounded-lg mb-1 text-sm transition font-medium ${section === s.id ? 'bg-[#f59e0b2e] text-[#f59e0b] font-semibold' : 'text-[#fff9f0b3] hover:bg-[#fff9f00d] hover:text-[#fff9f0]'}`}
+                onClick={() => setSection(s.id)}
+              >
+                <span className="text-base w-5 text-center">{s.icon}</span>
                 {s.label}
               </button>
             ))}
           </nav>
-          <div className="md-sidebar-footer">
-            <div className="md-sub-badge"><div className="md-sub-dot" />{profile?.subscription_status ?? 'ACTIVE'}</div>
+          <div className="mt-auto px-5 pt-6 border-t border-[#fff9f014]">
+            <div className="inline-flex items-center gap-2 text-xs font-medium text-[#f59e0b]">
+              <span className="inline-block w-2 h-2 rounded-full bg-[#f59e0b]"></span>
+              {profile?.subscription_status ?? 'ACTIVE'}
+            </div>
           </div>
         </aside>
 
-        <main className="md-main">
-          <div className="md-topbar">
-            <div className="md-page-title">{pageTitles[section]}</div>
-            <div className="md-topbar-actions">
-              <button className="btn-secondary" style={{ fontSize: 12 }} onClick={() => setSection('profile')}>
+        {/* Main content */}
+        <main className="flex-1 flex flex-col min-w-0">
+          <div className="flex items-center justify-between px-8 py-6 border-b border-[#23232e] bg-[#181820]">
+            <div className="font-playfair text-xl font-semibold text-[#FFF9F0]">{pageTitles[section]}</div>
+            <div className="flex gap-2">
+              <button className="btn-secondary text-xs" onClick={() => setSection('profile')}>
                 {profile?.business_name?.slice(0, 12) ?? 'Hồ sơ'} ▾
               </button>
             </div>
           </div>
-
-          <div className="md-content">
+          <div className="flex-1 px-8 py-7 flex flex-col gap-8 bg-[#181820]">
             {section === 'overview' && <OverviewSection pois={pois} promotions={promotions} />}
             {section === 'pois' && <PoisSection pois={pois} setPois={setPois} toast={toast} />}
             {section === 'content' && <ContentSection pois={pois} toast={toast} />}
@@ -96,11 +105,16 @@ export function MerchantDashboard() {
           </div>
         </main>
 
-        <div className="md-mobile-bar">
+        {/* Mobile bar */}
+        <div className="fixed md:hidden bottom-0 left-0 right-0 z-50 flex bg-[#23232e] border-t border-[#2a2a3c]">
           {mobileSections.map((s) => (
-            <button key={s.id} className={`md-mobile-tab${section === s.id ? ' active' : ''}`} onClick={() => setSection(s.id)}>
-              <span className="md-mobile-tab-icon">{s.icon}</span>
-              {s.label.split(' ')[0]}
+            <button
+              key={s.id}
+              className={`flex-1 flex flex-col items-center py-2 ${section === s.id ? 'text-[#f59e0b]' : 'text-[#fff9f0b3]'}`}
+              onClick={() => setSection(s.id)}
+            >
+              <span className="text-lg mb-1">{s.icon}</span>
+              <span className="text-xs font-medium">{s.label.split(' ')[0]}</span>
             </button>
           ))}
         </div>
