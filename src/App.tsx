@@ -54,6 +54,7 @@ import { AdminTours } from './features/admin/AdminTours'
 import { AdminPromotions } from './features/admin/AdminPromotions'
 import { AdminTransactions } from './features/admin/AdminTransactions'
 import { AdminTracking } from './features/admin/AdminTracking'
+import { AdminDevices } from './features/admin/AdminDevices'
 
 // --- SHARED ---
 import { NotFoundPage } from './shared/ui/NotFoundPage'
@@ -126,6 +127,7 @@ export function App() {
           <Route path="promotions" element={<AdminPromotions />} />
           <Route path="transactions" element={<AdminTransactions />} />
           <Route path="tracking" element={<AdminTracking />} />
+          <Route path="devices" element={<AdminDevices />} />
 
         </Route>
       </Route>

@@ -15,6 +15,7 @@ const MENU_ITEMS = [
   { path: 'promotions', label: 'Khuyến mãi', icon: '🎁' },
   { path: 'transactions', label: 'Dòng tiền', icon: '💰' },
   { path: 'tracking', label: 'Nhật ký', icon: '🛡️' },
+  { path: 'devices', label: 'Thiết bị kết nối', icon: '📱' },
 ];
 
 export function AdminLayout() {

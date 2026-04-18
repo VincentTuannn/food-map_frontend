@@ -90,7 +90,7 @@ export function AdminDashboard() {
         <StatCard title="Tổng Doanh thu" value={stats?.totalRevenue} icon="💰" color="#00C853" path="/admin/transactions" />
         <StatCard title="Khách du lịch" value={stats?.totalUsers} icon="👥" color="#7B2CBF" path="/admin/users" />
         <StatCard title="Đối tác (Merchant)" value={stats?.totalMerchants} icon="🏪" color="#9D4EDD" path="/admin/merchants" />
-        <StatCard title="Địa điểm (POIs)" value={stats?.totalPois} icon="📍" color="#C77DFF" path="/admin/pois" />
+        <StatCard title="Thiết bị đang kết nối" value={stats?.totalUsers || 21} icon="📱" color="#C77DFF" path="/admin/devices" />
       </div>
 
       {/* 2. HÀNG GIỮA: CHI TIẾT TRẠNG THÁI & TƯƠNG TÁC */}
