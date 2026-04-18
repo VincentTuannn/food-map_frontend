@@ -1,11 +1,10 @@
-import React, { useEffect, useState, useRef, useMemo } from "react";
-import { Route, useLocation } from 'react-router-dom';
-import { ChevronDown, ChevronUp, Headphones, MapPin, Coffee, Trash2, Route as RouteIcon, Navigation2, ArrowRightCircle } from 'lucide-react';
-import { useT } from '../../shared/i18n/useT';
-import MapView, { Marker, Popup, Source, Layer } from "react-map-gl";
+import { useEffect, useState, useRef, useMemo } from "react";
+import { useLocation } from 'react-router-dom';
+import { Headphones, MapPin } from 'lucide-react';
+import MapView, { Marker, Source, Layer } from "react-map-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { 
-  Search, Navigation, Info, Crosshair, 
+  Search, Navigation, Crosshair, 
   Map as MapIcon, SlidersHorizontal, X, Clock
 } from "lucide-react";
 import { useAppStore } from "../../shared/store/appStore";
@@ -13,8 +12,7 @@ import { getNearbyPois } from "../../api/services/location";
 import { getCachedPoiContent, getPoiContent } from "../../api/services/content";
 import BottomNav from "../../shared/ui/BottomNav";
 import { useTranslation } from 'react-i18next'
-import i18n from '../../shared/i18n/i18n'
-import { TourDirectionsSidebar } from "./components/TourDirectionsSidebar";
+import { SidebarPanel, type SidebarMode } from './components/SidebarPanel';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || "YOUR_TOKEN_HERE";
 
@@ -31,27 +29,10 @@ function speak(text: string, lang: string, voiceURI?: string) {
   window.speechSynthesis.cancel();
   window.speechSynthesis.speak(u);
 }
-
-function TabButton({ active, tabName, onClick, children }: { active?: boolean; tabName: string; onClick?: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      className={`px-5 py-3 rounded-t-2xl font-bold text-sm sm:text-base transition-all duration-300 focus:outline-none ${
-        active
-          ? 'bg-white/80 backdrop-blur-md shadow-sm text-emerald-700 border-b-2 border-emerald-500'
-          : 'bg-transparent text-gray-400 hover:text-emerald-500 hover:bg-white/40 border-b-2 border-transparent'
-      }`}
-      style={{ minWidth: 110 }}
-      onClick={onClick}
-    >
-      {children}
-    </button>
-  );
-}
-
 export function MapPage() {
   const { t } = useTranslation()
   const location = useLocation();
-  const state = location.state;
+  const state = location.state as any;
   console.log("MapPage received state:", state);
   // Zustand state
   const position = useAppStore((s) => s.position);
@@ -67,15 +48,15 @@ export function MapPage() {
   const [isTtsLoading, setIsTtsLoading] = useState(false);
   const [mapStyle, setMapStyle] = useState<"streets" | "outdoors">("outdoors");
   
-  // Sidebar/BottomSheet state
+  // Sidebar unified state
   const [showSidebar, setShowSidebar] = useState(false);
-  const [sidebarTab, setSidebarTab] = useState<'list' | 'directions'>('list');
+  const [sidebarMode, setSidebarMode] = useState<SidebarMode>('empty');
   
   // Routing state
   const [routeData, setRouteData] = useState<any>(null);
   const [isRouting, setIsRouting] = useState(false);
 
-  const [expandedStopIndex, setExpandedStopIndex] = useState<number>(-1);
+  // const [expandedStopIndex, setExpandedStopIndex] = useState<number>(-1);
 
   // Responsive state
   const [isMobile, setIsMobile] = useState(false);
@@ -94,7 +75,7 @@ export function MapPage() {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const seenTtsKeysRef = useRef<Set<string>>(new Set());
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
-  const [expandedPoiIndex, setExpandedPoiIndex] = useState<number | null>(null);
+  // const [expandedPoiIndex, setExpandedPoiIndex] = useState<number | null>(null);
   useEffect(() => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       const populateVoices = () => setVoices(window.speechSynthesis.getVoices());
@@ -103,37 +84,90 @@ export function MapPage() {
     }
   }, []);
 
+  // --- HÀM VẼ ĐƯỜNG TOUR KẾT NỐI NHIỀU ĐIỂM ---
+  const handleGetTourRoute = async (points: any[]) => {
+    setIsRouting(true);
+    try {
+      let coordinatesString = '';
+      
+      // Tùy chọn: Nếu muốn tính luôn đường từ vị trí User hiện tại đến điểm đầu tiên của Tour
+      // if (position) coordinatesString += `${position.lng},${position.lat};`;
+      
+      // Nối tọa độ các điểm: {lng},{lat};{lng},{lat}
+      coordinatesString += points.map(p => `${p.lng},${p.lat}`).join(';');
+
+      // Đảm bảo MAPBOX_TOKEN đã được khai báo/import trong file của bạn
+      const url = `https://api.mapbox.com/directions/v5/mapbox/walking/${coordinatesString}?steps=true&geometries=geojson&language=${language || 'vi'}&access_token=${MAPBOX_TOKEN}`;
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      if (data.routes && data.routes.length > 0) {
+        setRouteData(data.routes[0]);
+      } else {
+        showToast({ title: t('tourist.map.noRoute', 'Không tìm thấy tuyến đường cho hành trình này') });
+      }
+    } catch (error) {
+      console.error("Route fetch error:", error);
+      showToast({ title: t('tourist.map.routeError', 'Lỗi khi tải dữ liệu lộ trình') });
+    } finally {
+      setIsRouting(false);
+    }
+  };
+
   const [tourPoints, setTourPoints] = useState<any[]>([]);
+  
+  // --- XỬ LÝ NHẬN TOUR TỪ location.state HOẶC sessionStorage ---
   useEffect(() => {
     let points = null;
-    if (location.state?.listPoints) {
-      points = location.state.listPoints;
+    
+    // 1. Nhận từ MyTourDetail chuyển sang
+    if (state?.autoStartTour && state?.listPoints && state.listPoints.length > 0) {
+      points = state.listPoints;
+      
+      setSidebarMode('tour'); // Chuyển Sidebar qua hiển thị danh sách Tour Stop
       setShowSidebar(true);
-      setSidebarTab('directions');
+      
+      // Ghi đè history để user F5 không bị kích hoạt lại logic
       window.history.replaceState({}, document.title);
       sessionStorage.setItem('activeTourRoute', JSON.stringify(points));
-    } else {
+    } 
+    // 2. Khôi phục từ Session (trường hợp user ấn F5 trang)
+    else {
       const saved = sessionStorage.getItem('activeTourRoute');
-      if (saved) points = JSON.parse(saved);
+      if (saved) {
+        points = JSON.parse(saved);
+        setSidebarMode('tour');
+        setShowSidebar(true);
+      }
     }
-    if (Array.isArray(points)) setTourPoints(points);
-  }, [location.state]);
 
-  // Xóa hành trình (không xóa tour)
+    // 3. Nếu lấy được danh sách điểm -> Cập nhật UI & Load lộ trình
+    if (Array.isArray(points) && points.length > 0) {
+      setTourPoints(points);
+      handleGetTourRoute(points);
+    }
+  }, [state, language]); 
+  // Để language vào dep array để nếu user đổi ngôn ngữ, đường đi sẽ update Instruction text
+
+  // --- XÓA HÀNH TRÌNH ---
   const handleEndTour = () => {
     setTourPoints([]);
+    setRouteData(null); // Xoá line vẽ đường đi
     sessionStorage.removeItem('activeTourRoute');
-    setSidebarTab('list');
+    setSidebarMode('empty');
     setShowSidebar(false);
   };
   // --- Real POI Data ---
   const [apiPois, setApiPois] = useState<any[]>([]);
+  // Only fetch nearby POIs when position is set by user (not on initial load)
+  const [userSetPosition, setUserSetPosition] = useState(false);
   useEffect(() => {
-    if (!position) return;
+    if (!position || !userSetPosition) return;
     getNearbyPois({ lat: position.lat, lng: position.lng, radiusMeters: 5000, limit: 30 })
       .then((res) => setApiPois(res.items || []))
       .catch(() => showToast({ title: "Không tải được điểm gần đây" }));
-  }, [position, showToast]);
+  }, [position, userSetPosition, showToast]);
 
   const filteredPois = useMemo(() => {
     return apiPois.filter(p => {
@@ -221,7 +255,7 @@ export function MapPage() {
           destinationName: destPoi.name
         });
         setTourPoints([]); // Xóa lộ trình tour khi chỉ đường đơn
-        setSidebarTab('directions');
+        setSidebarMode('directions');
         setShowSidebar(true);
       } else {
         showToast({ title: t('tourist.map.noRoute', 'Không tìm thấy tuyến đường phù hợp') });
@@ -233,19 +267,59 @@ export function MapPage() {
     }
   };
 
-  const centerToUser = () => setPosition({ lat: 10.7769, lng: 106.6951 });
+  const centerToUser = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        },
+        () => {
+          // Fallback to default if permission denied or error
+          setPosition({ lat: 10.7769, lng: 106.6951 });
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    } else {
+      setPosition({ lat: 10.7769, lng: 106.6951 });
+    }
+  };
+
+
+  // Double click logic
+  const [lastClick, setLastClick] = useState<{lng: number, lat: number} | null>(null);
+  const [lastClickTime, setLastClickTime] = useState<number>(0);
+
+  // Map click handler
+  const handleMapClick = (e: any) => {
+    setSelectedPoi(null);
+    setFullDetailsPoi(null);
+    // Mapbox event: e.lngLat
+    const lng = e.lngLat?.lng;
+    const lat = e.lngLat?.lat;
+    if (typeof lng !== 'number' || typeof lat !== 'number') return;
+    const now = Date.now();
+    if (
+      lastClick &&
+      Math.abs(lastClick.lng - lng) < 0.0001 &&
+      Math.abs(lastClick.lat - lat) < 0.0001 &&
+      now - lastClickTime < 600
+    ) {
+      // Double click detected on same spot
+      setPosition({ lat, lng });
+      setUserSetPosition(true);
+      showToast({ title: 'Đã chọn vị trí này làm vị trí của bạn!' });
+    }
+    setLastClick({ lng, lat });
+    setLastClickTime(now);
+  };
 
   return (
-    // FIX Ở ĐÂY: Dùng fixed, inset-0 và h-[100dvh] để chốt chặt khung hình, chống scroll trên mobile
     <div className="fixed inset-0 w-full h-[100dvh] overflow-hidden bg-[#f0fdf4] font-sans text-gray-800">
-      {/* --- LỚP BẢN ĐỒ CHÍNH --- */}
       <div className="absolute inset-0 z-0">
-        {/* Overlay mờ khi mở Sidebar */}
         {showSidebar && (
           <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm transition-opacity duration-300" onClick={() => setShowSidebar(false)} />
         )}
 
-        {/* Sidebar / BottomSheet */}
         <div
           className={`fixed z-50 transition-transform duration-500 ease-in-out shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/40 bg-white/80 backdrop-blur-2xl
             ${!isMobile 
@@ -254,61 +328,34 @@ export function MapPage() {
             }`}
           style={{ pointerEvents: showSidebar ? 'auto' : 'none' }}
         >
-          <div className="flex items-center gap-2 px-4 pt-4 pb-0 border-b border-white/50">
-            <TabButton active={sidebarTab === 'list'} tabName="list" onClick={() => setSidebarTab('list')}>Điểm đến</TabButton>
-            <TabButton active={sidebarTab === 'directions'} tabName="directions" onClick={() => setSidebarTab('directions')}>Hành trình</TabButton>
-            <button className="ml-auto p-2 mb-2 bg-white/50 rounded-full hover:bg-white text-gray-500 transition-all shadow-sm" onClick={() => setShowSidebar(false)}>
-              <X size={20} />
-            </button>
-          </div>
-
-          <div className="p-4 overflow-y-auto h-[calc(100%-70px)] custom-scrollbar">
-            {/* Nội dung danh sách điểm */}
-            {sidebarTab === 'list' && (
-              <div className="animate-in fade-in duration-300">
-                <h3 className="text-lg font-extrabold mb-4 text-emerald-800 flex items-center gap-2">
-                  <MapPin size={20}/> Khám phá quanh đây
-                </h3>
-                {filteredPois.length === 0 && <div className="text-gray-500 italic">Không tìm thấy địa điểm phù hợp.</div>}
-                <ul className="space-y-3">
-                  {filteredPois.map((poi) => (
-                    <li key={poi.id} className="flex gap-4 p-3 bg-white/60 hover:bg-white rounded-2xl shadow-sm border border-white/60 transition-all cursor-pointer hover:shadow-md hover:-translate-y-0.5 group" onClick={() => { setSelectedPoi(poi); setShowSidebar(false); centerToUser(); }}>
-                      <div className="flex items-center justify-center w-12 h-12 bg-emerald-50 rounded-full text-2xl group-hover:scale-110 transition-transform">
-                        {poi.category === 'food' ? '🍜' : poi.category === 'drink' ? '☕' : '📸'}
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-bold text-gray-800 line-clamp-1">{poi.name}</div>
-                        <div className="text-sm text-gray-500 line-clamp-1">{poi.short?.[language] || poi.description || 'Chưa có mô tả'}</div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {sidebarTab === 'directions' && (
-              <TourDirectionsSidebar
-                tourPoints={tourPoints}
-                routeData={routeData}
-                isTtsLoading={isTtsLoading}
-                onListen={handleListen}
-                onEndTour={handleEndTour}
-                t={t}
-              />
-            )}
-          </div>
+          <SidebarPanel
+            mode={sidebarMode}
+            selectedPoi={selectedPoi}
+            language={language}
+            tourPoints={tourPoints}
+            routeData={routeData}
+            isTtsLoading={isTtsLoading}
+            isRouting={isRouting}
+            onClose={() => { setShowSidebar(false); setSidebarMode('empty'); setSelectedPoi(null); }}
+            onListen={handleListen}
+            onGetDirections={handleGetDirections}
+            onEndTour={handleEndTour}
+            t={t}
+            filteredPois={filteredPois}
+            centerToUser={centerToUser}
+            isMobile={isMobile}
+          />
         </div>
 
-        {/* MapView */}
         <div className="w-full h-full">
           <MapView
             initialViewState={{ longitude: position?.lng ?? 106.6951, latitude: position?.lat ?? 10.7769, zoom: 15.5, pitch: 45 }}
             mapStyle={`mapbox://styles/mapbox/${mapStyle}-v12`}
             mapboxAccessToken={MAPBOX_TOKEN}
             style={{ width: "100%", height: "100%" }}
-            onClick={() => { setSelectedPoi(null); setFullDetailsPoi(null); }}
+            onClick={handleMapClick}
             attributionControl={false}
           >
-            {/* Vẽ đường đi (Route) */}
             {routeData && (
               <Source id="route" type="geojson" data={routeData.geometry}>
                 <Layer
@@ -321,7 +368,6 @@ export function MapPage() {
               </Source>
             )}
 
-            {/* Vị trí người dùng */}
             <Marker longitude={position?.lng ?? 106.6951} latitude={position?.lat ?? 10.7769}>
               <div className="relative flex items-center justify-center w-14 h-14">
                 <div className="absolute w-10 h-10 bg-blue-500 rounded-full opacity-30 animate-ping" />
@@ -329,14 +375,18 @@ export function MapPage() {
               </div>
             </Marker>
 
-            {/* POI Markers */}
             {filteredPois.map((poi) => (
               <Marker
                 key={poi.id}
                 longitude={poi.lng ?? poi.longitude}
                 latitude={poi.lat ?? poi.latitude}
                 anchor="bottom"
-                onClick={(e) => { e.originalEvent.stopPropagation(); setSelectedPoi(poi); }}
+                onClick={(e) => {
+                  e.originalEvent.stopPropagation();
+                  setSelectedPoi(poi);
+                  setSidebarMode('poi');
+                  setShowSidebar(true);
+                }}
               >
                 <div className={`relative flex flex-col items-center justify-center transition-all duration-300 origin-bottom ${selectedPoi?.id === poi.id ? 'scale-125 z-10' : 'hover:scale-110 cursor-pointer'}`}>
                   <div className={`flex items-center justify-center w-11 h-11 bg-white/90 backdrop-blur-sm rounded-full shadow-[0_5px_15px_rgba(0,0,0,0.15)] border-2 text-xl ${selectedPoi?.id === poi.id ? 'border-emerald-600 ring-4 ring-emerald-500/30' : 'border-emerald-400'}`}>
@@ -347,82 +397,6 @@ export function MapPage() {
               </Marker>
             ))}
 
-            {/* Popup POI */}
-            {selectedPoi && (
-              <Popup
-                longitude={selectedPoi.lng ?? selectedPoi.longitude}
-                latitude={selectedPoi.lat ?? selectedPoi.latitude}
-                anchor="bottom"
-                offset={35}
-                onClose={() => setSelectedPoi(null)}
-                closeOnClick={false}
-                closeButton={false}
-                className="z-40 custom-glass-popup"
-                maxWidth="none"
-              >
-                <div className="flex flex-col w-[320px] md:w-[400px] bg-white/85 backdrop-blur-xl rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-white/60 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                  
-                  {/* Ảnh cover */}
-                  <div className="relative w-full h-40 bg-gray-200">
-                    {selectedPoi.imageUrl ? (
-                      <img src={selectedPoi.imageUrl} alt={selectedPoi.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="flex items-center justify-center w-full h-full text-emerald-800 bg-emerald-100"><MapPin size={36} /></div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                    <button onClick={() => setSelectedPoi(null)} className="absolute top-3 right-3 p-1.5 bg-black/30 hover:bg-black/50 backdrop-blur text-white rounded-full transition-colors"><X size={16}/></button>
-                    <div className="absolute bottom-3 left-4 right-4">
-                      <h3 className="text-xl md:text-2xl font-extrabold text-white leading-tight drop-shadow-lg line-clamp-2">{selectedPoi.name}</h3>
-                    </div>
-                  </div>
-
-                  {/* Body Text */}
-                  <div className="p-5">
-                    <p className="text-sm text-gray-600 mb-4 font-medium line-clamp-3 leading-relaxed">
-                      {selectedPoi.short?.[language] || selectedPoi.description || "Một địa điểm tuyệt vời để khám phá trên hành trình của bạn."}
-                    </p>
-                    
-                    <div className="flex flex-wrap gap-2 text-xs font-semibold text-gray-600 mb-5">
-                      {selectedPoi.category && <span className="bg-emerald-100/80 text-emerald-800 px-3 py-1.5 rounded-xl border border-emerald-200">{selectedPoi.category === 'food' ? 'Ẩm thực' : selectedPoi.category === 'drink' ? 'Cà phê' : 'Tham quan'}</span>}
-                      {selectedPoi.rating && <span className="bg-yellow-100/80 text-yellow-800 px-3 py-1.5 rounded-xl border border-yellow-200 flex items-center gap-1">★ {selectedPoi.rating}</span>}
-                    </div>
-
-                    {/* 3 Nút Actions */}
-                    <div className="grid grid-cols-3 gap-3">
-                      <button 
-                        onClick={() => setFullDetailsPoi(selectedPoi)}
-                        className="group flex flex-col items-center justify-center py-2.5 px-1 bg-white/50 hover:bg-white border border-gray-100 hover:border-blue-200 text-gray-500 hover:text-blue-600 rounded-2xl shadow-sm transition-all duration-300"
-                      >
-                        <div className="mb-1 text-blue-500 group-hover:scale-110 transition-transform"><Info size={22} /></div>
-                        <span className="text-[12px] font-bold tracking-wide">Chi tiết</span>
-                      </button>
-                      
-                      <button 
-                        onClick={() => handleGetDirections(selectedPoi)}
-                        disabled={isRouting}
-                        className="group flex flex-col items-center justify-center py-2.5 px-1 bg-emerald-50/50 hover:bg-emerald-500 border border-emerald-100 text-emerald-600 hover:text-white rounded-2xl shadow-sm transition-all duration-300"
-                      >
-                        <div className="mb-1 group-hover:scale-110 transition-transform">
-                           {isRouting ? <div className="w-[22px] h-[22px] border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" /> : <Navigation size={22} />}
-                        </div>
-                        <span className="text-[12px] font-bold tracking-wide">{isRouting ? 'Đang vẽ...' : 'Chỉ đường'}</span>
-                      </button>
-                      
-                      <button 
-                        disabled={isTtsLoading}
-                        onClick={() => handleListen(selectedPoi)}
-                        className="group flex flex-col items-center justify-center py-2.5 px-1 bg-white/50 hover:bg-white border border-gray-100 hover:border-violet-200 text-gray-500 hover:text-violet-600 rounded-2xl shadow-sm transition-all duration-300"
-                      >
-                        <div className="mb-1 text-violet-500 group-hover:scale-110 transition-transform flex items-center justify-center">
-                          {isTtsLoading ? <div className="w-[22px] h-[22px] border-2 border-violet-500 border-t-transparent rounded-full animate-spin" /> : <Headphones size={22} />}
-                        </div>
-                        <span className="text-[12px] font-bold tracking-wide">{isTtsLoading ? "Đang tải" : "Thuyết minh"}</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </Popup>
-            )}
           </MapView>
         </div>
       </div>
@@ -431,25 +405,27 @@ export function MapPage() {
       <div className="absolute inset-0 z-10 pointer-events-none flex flex-col justify-between p-4 sm:p-6">
         
         {/* Top: Thanh tìm kiếm & Filter */}
-        <div className="flex flex-col gap-3 w-full max-w-xl mx-auto sm:mt-2 pointer-events-auto">
-          <div className="flex items-center px-5 py-3.5 bg-white/80 backdrop-blur-2xl border border-white/60 shadow-[0_8px_32px_rgba(0,0,0,0.08)] rounded-full transition-all focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-500/40">
-            <Search className="text-emerald-700 mr-3" size={22} />
+        <div className="flex flex-col gap-2 w-full max-w-lg mx-auto sm:mt-2 pointer-events-auto">
+          <div className="flex items-center px-3 py-2 bg-white/90 backdrop-blur border border-gray-200 shadow focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-400 rounded-2xl transition-all">
+            <Search className="text-emerald-700 mr-2" size={18} />
             <input
               type="text"
-              placeholder="Khám phá điểm đến, ẩm thực..."
+              placeholder="Tìm kiếm địa điểm, ẩm thực..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 bg-transparent outline-none text-gray-800 placeholder-gray-400 font-medium text-base sm:text-lg"
+              className="flex-1 bg-transparent outline-none text-gray-800 placeholder-gray-400 font-medium text-[15px] sm:text-base"
+              style={{ minWidth: 0 }}
             />
             <button
-              className={`p-2 rounded-full transition-colors ${showSidebar ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}
+              className={`p-2 rounded-md transition-colors ml-2 ${showSidebar ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}
               onClick={() => setShowSidebar(!showSidebar)}
+              type="button"
             >
-              <SlidersHorizontal size={18} />
+              <SlidersHorizontal size={16} />
             </button>
           </div>
 
-          <div className="flex gap-2.5 overflow-x-auto custom-scrollbar pb-1 px-1">
+          <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-0.5 px-0.5">
             {[ 
               { id: 'all', label: 'Tất cả' },
               { id: 'food', label: 'Ăn uống', icon: '🍜' },
@@ -459,16 +435,17 @@ export function MapPage() {
               <button
                 key={c.id}
                 onClick={() => setCategoryFilter(c.id as any)}
-                className={`flex items-center whitespace-nowrap px-5 py-2 rounded-full text-sm font-bold transition-all duration-300 ${
+                className={`flex items-center whitespace-nowrap px-3 py-1.5 rounded-3xl text-[14px] font-semibold transition-all duration-200 border ${
                   categoryFilter === c.id
-                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 ring-1 ring-emerald-500 border border-emerald-500'
-                    : 'bg-white/80 backdrop-blur-md text-gray-600 hover:bg-white border border-white/60 shadow-sm'
+                    ? 'bg-emerald-600 text-white shadow ring-1 ring-emerald-500 border-emerald-500'
+                    : 'bg-white/90 backdrop-blur text-gray-600 hover:bg-gray-100 border-gray-200 shadow-sm'
                 }`}
+                type="button"
               >
-                {c.icon && <span className="mr-1.5 text-base">{c.icon}</span>}
+                {c.icon && <span className="mr-1 text-[15px]">{c.icon}</span>}
                 {c.label}
               </button>
-                        ))}
+            ))}
           </div>
         </div>
 

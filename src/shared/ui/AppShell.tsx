@@ -1,5 +1,4 @@
 
-import { TopBar } from './TopBar';
 import BottomNav from './BottomNav';
 import { Toast } from './Toast';
 import type { ReactNode } from 'react';

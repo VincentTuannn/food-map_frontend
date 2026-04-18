@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { useAppStore } from '../../shared/store/appStore'
 
 import './merchantSubscribePage.css'
@@ -75,7 +75,6 @@ const subscriptionPlans = [
 ]
 
 export function MerchantSubscribePage() {
-  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const showToast = useAppStore((s) => s.showToast)
   const [selectedPlan, setSelectedPlan] = useState<typeof subscriptionPlans[0] | null>(null)
@@ -88,11 +87,11 @@ export function MerchantSubscribePage() {
     const orderInfo = searchParams.get('vnp_OrderInfo')
     
     if (responseCode && orderInfo) {
-      handlePaymentCallback(searchParams)
+      handlePaymentCallback()
     }
   }, [searchParams])
 
-  const handlePaymentCallback = async (params: URLSearchParams) => {
+  const handlePaymentCallback = async () => {
     setIsLoading(true)
     try {
       // TODO: Hiện tại payment.ts không có verifyPayment, cần bổ sung nếu muốn xác thực callback

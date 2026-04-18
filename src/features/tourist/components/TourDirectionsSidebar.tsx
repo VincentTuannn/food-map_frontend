@@ -11,7 +11,7 @@
  *   ✅ TypeScript strict
  */
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   MapPin, Headphones, ChevronDown, Navigation, Clock,
   CornerUpRight, CornerUpLeft, ArrowUp, RotateCw,

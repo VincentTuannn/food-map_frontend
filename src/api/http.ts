@@ -19,7 +19,7 @@ export class HttpError extends Error {
 }
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL as string | undefined
-
+console.log("BASE_URL hiện tại:", BASE_URL)
 type Json = string | number | boolean | null | { [k: string]: Json } | Json[]
 // Sửa lỗi joinBaseUrl để xử lý đúng trường hợp BASE_URL có hoặc không có dấu gạch chéo ở cuối, và path có hoặc không có dấu gạch chéo ở đầu
 function joinBaseUrl(base: string, path: string) {
