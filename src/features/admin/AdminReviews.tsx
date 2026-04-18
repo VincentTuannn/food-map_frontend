@@ -63,21 +63,19 @@ export function AdminReviews() {
   });
 
   return (
-    <div style={{ animation: 'fadeIn 0.3s' }}>
+    <div className="animate-fadeIn">
       {/* HEADER & FILTER */}
-      <div className="card cardPad" style={{ marginBottom: 20 }}>
+      <div className="card cardPad mb-5">
         <div className="rowBetween">
           <div>
-            <h2 style={{ margin: 0, color: '#8B7355', fontSize: 24, fontWeight: 800 }}>⭐ Kiểm duyệt Đánh giá</h2>
-            <p style={{ color: '#888', marginTop: 5, fontSize: 14 }}>Quản lý và gỡ bỏ các nội dung đánh giá vi phạm tiêu chuẩn.</p>
+            <h2 className="m-0 text-[#8B7355] text-2xl font-extrabold">⭐ Kiểm duyệt Đánh giá</h2>
+            <p className="text-[#888] mt-1 text-base">Quản lý và gỡ bỏ các nội dung đánh giá vi phạm tiêu chuẩn.</p>
           </div>
-          
-          <div style={{ display: 'flex', gap: 10 }}>
-            <select 
-              className="select" 
-              style={{ width: 150 }}
+          <div className="flex gap-2.5">
+            <select
+              className="select w-40"
               value={filters.rating}
-              onChange={(e) => setFilters({...filters, rating: e.target.value})}
+              onChange={e => setFilters({ ...filters, rating: e.target.value })}
             >
               <option value="">Tất cả số sao</option>
               <option value="5">5 sao ⭐⭐⭐⭐⭐</option>
@@ -92,45 +90,36 @@ export function AdminReviews() {
       </div>
 
       {/* REVIEWS LIST */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+      <div className="flex flex-col gap-4">
         {isFetching ? (
-          <div className="card cardPad" style={{ textAlign: 'center', color: '#888' }}>⏳ Đang tải đánh giá...</div>
+          <div className="card cardPad text-center text-[#888]">⏳ Đang tải đánh giá...</div>
         ) : displayedReviews.length === 0 ? (
-          <div className="card cardPad" style={{ textAlign: 'center', color: '#888' }}>Không có đánh giá nào phù hợp với bộ lọc.</div>
+          <div className="card cardPad text-center text-[#888]">Không có đánh giá nào phù hợp với bộ lọc.</div>
         ) : (
           displayedReviews.map((rev) => (
-            <div key={rev.id} className="card cardPad" style={{ background: '#1E1E2D', border: '1px solid #333' }}>
+            <div key={rev.id} className="card cardPad bg-[#1E1E2D] border border-[#333]">
               <div className="rowBetween">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#2A2A3C', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
-                    👤
-                  </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-[#2A2A3C] flex items-center justify-center text-lg">👤</div>
                   <div>
-                    <div style={{ color: '#fff', fontWeight: 700 }}>{rev.user?.email || 'Người dùng ẩn danh'}</div>
-                    <div style={{ color: '#FFCC00', fontSize: 12 }}>{renderStars(rev.rating)}</div>
+                    <div className="text-white font-bold">{rev.user?.email || 'Người dùng ẩn danh'}</div>
+                    <div className="text-[#FFCC00] text-xs">{renderStars(rev.rating)}</div>
                   </div>
                 </div>
-                <button 
-                  className="btn" 
-                  style={{ color: '#ff4d4f', border: '1px solid rgba(255, 77, 79, 0.2)', fontSize: 12 }}
+                <button
+                  className="btn text-[#ff4d4f] border border-[#ff4d4f33] text-xs"
                   onClick={() => handleDeleteReview(rev.id)}
                   disabled={isProcessing}
                 >
                   Gỡ bỏ
                 </button>
               </div>
-
-              <div style={{ marginTop: 15, padding: '12px', background: '#151521', borderRadius: 8, borderLeft: '3px solid #7B2CBF' }}>
-                <p style={{ color: '#ddd', margin: 0, fontSize: 14, fontStyle: 'italic' }}>"{rev.comment || 'Không có nội dung bình luận.'}"</p>
+              <div className="mt-4 p-3 bg-[#151521] rounded-lg border-l-4 border-[#7B2CBF]">
+                <p className="text-[#ddd] m-0 text-base italic">"{rev.comment || 'Không có nội dung bình luận.'}"</p>
               </div>
-
-              <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontSize: 12, color: '#555' }}>
-                  📍 Địa điểm: <b style={{ color: '#aaa' }}>{rev.poi?.name || 'N/A'}</b>
-                </div>
-                <div style={{ fontSize: 11, color: '#444' }}>
-                  Gửi lúc: {rev.created_at || rev.createdAt ? new Date(rev.created_at || rev.createdAt).toLocaleString('vi-VN') : 'Không rõ thời gian'}
-                </div>
+              <div className="mt-3 flex justify-between items-center">
+                <div className="text-xs text-[#555]">📍 Địa điểm: <b className="text-[#aaa]">{rev.poi?.name || 'N/A'}</b></div>
+                <div className="text-[11px] text-[#444]">Gửi lúc: {rev.created_at || rev.createdAt ? new Date(rev.created_at || rev.createdAt).toLocaleString('vi-VN') : 'Không rõ thời gian'}</div>
               </div>
             </div>
           ))

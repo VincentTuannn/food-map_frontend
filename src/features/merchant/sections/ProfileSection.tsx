@@ -35,58 +35,58 @@ export function ProfileSection({
   const initials = (form.business_name || 'M').split(' ').slice(0, 2).map((w) => w[0]?.toUpperCase()).join('')
 
   return (
-    <div className="md-grid-2 md-stagger">
-      <div className="md-card">
-        <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 22 }}>
-          <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'linear-gradient(135deg,#92400E,#78350F)', display: 'grid', placeItems: 'center', fontFamily: "'Playfair Display',serif", fontSize: 22, color: '#FFF9F0', flexShrink: 0 }}>{initials}</div>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      {/* Profile Card */}
+      <div className="rounded-2xl bg-white/5 border border-[#f3f3f3] shadow p-7 flex flex-col gap-4">
+        <div className="flex gap-4 items-center mb-6">
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-800 to-amber-900 grid place-items-center font-playfair text-2xl text-[#FFF9F0] font-bold flex-shrink-0">{initials}</div>
           <div>
-            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 18, fontWeight: 600 }}>{form.business_name || 'Tên quán ăn'}</div>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3 }}>{form.email}</div>
+            <div className="font-playfair text-lg font-semibold text-white">{form.business_name || 'Tên quán ăn'}</div>
+            <div className="text-xs text-[#bbb] mt-1">{form.email}</div>
             <StatusBadge status={profile?.subscription_status ?? 'ACTIVE'} />
           </div>
         </div>
-
-        <div className="md-card-label">Thông tin cơ bản</div>
-        <div className="md-form" style={{ marginTop: 10 }}>
-          <div className="md-field">
-            <label className="md-label">Tên thương hiệu / Quán ăn</label>
-            <input className="md-input" value={form.business_name} onChange={(e) => setForm({ ...form, business_name: e.target.value })} />
+        <div className="text-xs uppercase tracking-widest text-amber-600 font-bold mb-2">Thông tin cơ bản</div>
+        <form className="flex flex-col gap-4 mt-2">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-[#8B7355]">Tên thương hiệu / Quán ăn</label>
+            <input className="rounded-lg border border-[#E8D9C5] px-4 py-2 bg-white/80 text-[#4A3728] focus:outline-none focus:ring-2 focus:ring-amber-400" value={form.business_name} onChange={e => setForm({ ...form, business_name: e.target.value })} />
           </div>
-          <div className="md-field">
-            <label className="md-label">Email đăng nhập</label>
-            <input className="md-input" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} type="email" />
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-[#8B7355]">Email đăng nhập</label>
+            <input className="rounded-lg border border-[#E8D9C5] px-4 py-2 bg-white/80 text-[#4A3728] focus:outline-none focus:ring-2 focus:ring-amber-400" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} type="email" />
           </div>
-          <div className="md-row">
-            <button className="btn-primary" onClick={save} disabled={saving}>{saving ? 'Đang lưu…' : 'Lưu thay đổi'}</button>
+          <div className="flex gap-2 mt-2">
+            <button type="button" className="rounded-full bg-amber-500 text-white font-bold px-6 py-2 hover:bg-amber-600 transition" onClick={save} disabled={saving}>{saving ? 'Đang lưu…' : 'Lưu thay đổi'}</button>
           </div>
-        </div>
+        </form>
       </div>
 
-      <div className="md-card">
-        <div className="md-card-label">Bảo mật</div>
-        <div className="md-card-title" style={{ marginBottom: 6 }}>Đổi mật khẩu</div>
-        <div className="md-card-sub" style={{ marginBottom: 18 }}>Sử dụng mật khẩu mạnh ít nhất 8 ký tự.</div>
-        {changePw
-          ? (
-            <div className="md-form">
-              {['Mật khẩu hiện tại', 'Mật khẩu mới', 'Xác nhận mật khẩu mới'].map((l) => (
-                <div className="md-field" key={l}>
-                  <label className="md-label">{l}</label>
-                  <input className="md-input" type="password" />
-                </div>
-              ))}
-              <div className="md-row">
-                <button className="btn-primary">Đổi mật khẩu</button>
-                <button className="btn-secondary" onClick={() => setChangePw(false)}>Huỷ</button>
+      {/* Security & Account Card */}
+      <div className="rounded-2xl bg-white/5 border border-[#f3f3f3] shadow p-7 flex flex-col gap-4">
+        <div className="text-xs uppercase tracking-widest text-amber-600 font-bold mb-2">Bảo mật</div>
+        <div className="font-playfair text-lg font-semibold text-white mb-1">Đổi mật khẩu</div>
+        <div className="text-sm text-[#bbb] mb-4">Sử dụng mật khẩu mạnh ít nhất 8 ký tự.</div>
+        {changePw ? (
+          <form className="flex flex-col gap-3">
+            {['Mật khẩu hiện tại', 'Mật khẩu mới', 'Xác nhận mật khẩu mới'].map((l) => (
+              <div className="flex flex-col gap-1" key={l}>
+                <label className="text-xs font-semibold text-[#8B7355]">{l}</label>
+                <input className="rounded-lg border border-[#E8D9C5] px-4 py-2 bg-white/80 text-[#4A3728] focus:outline-none focus:ring-2 focus:ring-amber-400" type="password" />
               </div>
+            ))}
+            <div className="flex gap-2 mt-2">
+              <button type="button" className="rounded-full bg-amber-500 text-white font-bold px-6 py-2 hover:bg-amber-600 transition">Đổi mật khẩu</button>
+              <button type="button" className="rounded-full bg-white text-[#8B7355] border border-[#E8D9C5] px-6 py-2 hover:bg-[#F5EDE0] transition" onClick={() => setChangePw(false)}>Huỷ</button>
             </div>
-          )
-          : <button className="btn-secondary" onClick={() => setChangePw(true)}>🔒 Thay đổi mật khẩu</button>
-        }
-        <div className="md-divider" style={{ margin: '22px 0' }} />
-        <div className="md-card-label">Tài khoản</div>
-        <div className="md-card-sub" style={{ margin: '8px 0 14px' }}>ID: <code style={{ fontSize: 11, background: 'var(--smoke)', padding: '2px 6px', borderRadius: 4 }}>{profile?.id ?? '—'}</code></div>
-        <button className="btn-danger" onClick={onLogout}>Đăng xuất</button>
+          </form>
+        ) : (
+          <button className="rounded-full bg-white text-[#8B7355] border border-[#E8D9C5] px-6 py-2 hover:bg-[#F5EDE0] transition" onClick={() => setChangePw(true)}>🔒 Thay đổi mật khẩu</button>
+        )}
+        <div className="my-6 h-px bg-[#E8D9C5]" />
+        <div className="text-xs uppercase tracking-widest text-amber-600 font-bold mb-2">Tài khoản</div>
+        <div className="text-sm text-[#bbb] mb-4">ID: <code className="text-xs bg-[#f5f5f5] px-2 py-1 rounded">{profile?.id ?? '—'}</code></div>
+        <button className="rounded-full bg-red-500 text-white font-bold px-6 py-2 hover:bg-red-600 transition" onClick={onLogout}>Đăng xuất</button>
       </div>
     </div>
   )

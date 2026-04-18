@@ -312,7 +312,7 @@ function POIDetailPanel({
       const items = await getReviewsByPoi(poi.id!);
       setReviews(items || []);
     } catch (err) {
-      setSubmitError(t('tourist.poi.writeReviewError', 'Gửi đánh giá thất bại.'));
+      setSubmitError(t('tourist.poi.writeReviewError'));
     } finally {
       setIsSubmitting(false);
     }
@@ -395,20 +395,20 @@ function POIDetailPanel({
         <div className="px-4 py-3 border-b border-gray-100">
           <div className="font-bold text-[15px] mb-2 flex items-center gap-2">
             <Star size={15} className="text-amber-400" />
-            {t('tourist.poi.reviewsTitle', 'Đánh giá')}
+            {t('tourist.poi.reviewsTitle')}
           </div>
           {isLoadingReviews && (
-            <div className="text-gray-400 text-[13px] italic">{t('tourist.poi.loadingReviews', 'Đang tải đánh giá...')}</div>
+            <div className="text-gray-400 text-[13px] italic">{t('tourist.poi.loadingReviews')}</div>
           )}
           {!isLoadingReviews && reviews.length === 0 && (
-            <div className="text-gray-400 text-[13px] italic">{t('tourist.poi.noReviews', 'Chưa có đánh giá nào.')}</div>
+            <div className="text-gray-400 text-[13px] italic">{t('tourist.poi.noReviews')}</div>
           )}
           {!isLoadingReviews && reviews.length > 0 && (
             <div className="flex flex-col gap-2">
               {reviews.map((r, idx) => (
                 <div key={r.id ?? idx} className="bg-white/80 rounded-xl p-3 border border-gray-100 shadow-sm">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="font-semibold text-gray-800 text-[13px]">{r.author ?? t('tourist.poi.user', 'Người dùng')}</span>
+                    <span className="font-semibold text-gray-800 text-[13px]">{r.author ?? t('tourist.poi.user')}</span>
                     <span className="flex items-center gap-1 text-amber-500 text-[12px] font-bold">
                       <Star size={13} className="inline-block" /> {r.stars ?? r.rating ?? 0}/5
                     </span>
@@ -424,14 +424,14 @@ function POIDetailPanel({
           {/* Review submission form */}
           <form className="mt-3 flex flex-col gap-2" onSubmit={handleSubmitReview}>
             <div className="flex items-center gap-2">
-              <span className="text-[13px] font-semibold">{t('tourist.poi.writeReview', 'Viết đánh giá')}:</span>
+              <span className="text-[13px] font-semibold">{t('tourist.poi.writeReview')}:</span>
               {[1,2,3,4,5].map(star => (
                 <button
                   type="button"
                   key={star}
                   className={`p-0 m-0 bg-transparent border-none focus:outline-none ${reviewStars >= star ? 'text-amber-400' : 'text-gray-300'}`}
                   onClick={() => setReviewStars(star)}
-                  aria-label={t('tourist.poi.star', 'Sao') + ' ' + star}
+                  aria-label={t('tourist.poi.star') + ' ' + star}
                 >
                   <Star size={18} fill={reviewStars >= star ? '#FBBF24' : 'none'} />
                 </button>
@@ -441,7 +441,7 @@ function POIDetailPanel({
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[13px] resize-none focus:ring-2 focus:ring-amber-400"
               rows={2}
               maxLength={300}
-              placeholder={t('tourist.poi.writeReviewPlaceholder', 'Chia sẻ cảm nhận của bạn...')}
+              placeholder={t('tourist.poi.writeReviewPlaceholder')}
               value={reviewText}
               onChange={e => setReviewText(e.target.value)}
               required
@@ -453,7 +453,7 @@ function POIDetailPanel({
               className="self-end px-4 py-1.5 rounded-lg bg-amber-500 text-white font-bold text-[13px] mt-1 disabled:opacity-60"
               disabled={isSubmitting || !reviewText.trim()}
             >
-              {isSubmitting ? t('tourist.poi.sending', 'Đang gửi...') : t('tourist.poi.submitReview', 'Gửi đánh giá')}
+              {isSubmitting ? t('tourist.poi.sending') : t('tourist.poi.submitReview')}
             </button>
           </form>
         </div>
@@ -477,7 +477,7 @@ function POIDetailPanel({
               ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               : <Navigation size={16} />
             }
-            {isRouting ? t('tourist.map.drawing', 'Đang vẽ…') : t('tourist.map.navigateTo', 'Chỉ đường')}
+            {isRouting ? t('tourist.map.drawing') : t('tourist.map.navigateTo')}
           </button>
 
           <button
@@ -494,7 +494,7 @@ function POIDetailPanel({
               ? <div className="w-4 h-4 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />
               : <Headphones size={16} />
             }
-            {isTtsLoading ? t('tourist.map.loading', 'Đang tải…') : t('tourist.map.listen', 'Thuyết minh')}
+            {isTtsLoading ? t('tourist.map.loading') : t('tourist.map.listen')}
           </button>
         </div>
 
@@ -505,14 +505,14 @@ function POIDetailPanel({
             className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-semibold text-[12px] transition-all active:scale-95 bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
           >
             <VoucherIcon size={13} />
-            {t('tourist.poi.voucherTitle', 'Nhận Voucher')}
+            {t('tourist.poi.voucherTitle')}
           </button>
           <button
             onClick={() => onShare?.(poiData || poi)}
             className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-semibold text-[12px] transition-all active:scale-95 bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200"
           >
             <Share2 size={13} />
-            {t('tourist.poi.share', 'Chia sẻ')}
+            {t('tourist.poi.share')}
           </button>
         </div>
       </div>
@@ -800,7 +800,7 @@ const [emptyTab, setEmptyTab] = useState<'nearby'|'directions'>('nearby');
           </div>
           <div className="flex-1 min-w-0">
             <div className="font-extrabold text-[14px] text-gray-900 leading-none">
-              {t('tourist.map.tourRoute', 'Lộ trình hành trình')}
+              {t('tourist.map.tourRoute', 'Lộ trình chuyến đi')}
             </div>
             <div className="text-[10px] text-gray-400 mt-0.5">{tourPoints.length} điểm dừng</div>
           </div>
@@ -837,7 +837,7 @@ const [emptyTab, setEmptyTab] = useState<'nearby'|'directions'>('nearby');
             className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gray-900 hover:bg-gray-800 text-white font-extrabold text-[14px] transition-all active:scale-[0.98] shadow-lg"
           >
             <Trash2 size={15} />
-            {t('tourist.map.endTour', 'Kết thúc Hành trình')}
+            {t('tourist.map.endTour', 'Kết thúc chuyến đi')}
           </button>
         </div>
       </div>

@@ -48,31 +48,29 @@ export function AdminTransactions() {
   };
 
   return (
-    <div style={{ animation: 'fadeIn 0.3s' }}>
+    <div className="animate-fadeIn">
       {/* HEADER & FILTER */}
-      <div className="card cardPad" style={{ marginBottom: 20 }}>
-        <h2 style={{ margin: '0 0 20px 0', color: '#8B7355', fontSize: 24, fontWeight: 800 }}>💰 Đối soát dòng tiền</h2>
-        
-        <div style={{ display: 'flex', gap: 15, flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <label style={{ color: '#888', fontSize: 12, display: 'block', marginBottom: 5 }}>Đối tượng</label>
-            <select 
-              className="select" 
+      <div className="card cardPad mb-5">
+        <h2 className="mb-5 text-[#8B7355] text-2xl font-extrabold">💰 Đối soát dòng tiền</h2>
+        <div className="flex gap-4 flex-wrap">
+          <div className="flex-1 min-w-[200px]">
+            <label className="text-[#888] text-xs block mb-1.5">Đối tượng</label>
+            <select
+              className="select w-full"
               value={filters.actor_type}
-              onChange={(e) => setFilters({...filters, actor_type: e.target.value})}
+              onChange={e => setFilters({ ...filters, actor_type: e.target.value })}
             >
               <option value="">Tất cả đối tượng</option>
               <option value="USER">Khách du lịch (User)</option>
               <option value="MERCHANT">Đối tác (Merchant)</option>
             </select>
           </div>
-
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <label style={{ color: '#888', fontSize: 12, display: 'block', marginBottom: 5 }}>Trạng thái</label>
-            <select 
-              className="select" 
+          <div className="flex-1 min-w-[200px]">
+            <label className="text-[#888] text-xs block mb-1.5">Trạng thái</label>
+            <select
+              className="select w-full"
               value={filters.status}
-              onChange={(e) => setFilters({...filters, status: e.target.value})}
+              onChange={e => setFilters({ ...filters, status: e.target.value })}
             >
               <option value="">Tất cả trạng thái</option>
               <option value="SUCCESS">Thành công</option>
@@ -80,8 +78,7 @@ export function AdminTransactions() {
               <option value="FAILED">Thất bại</option>
             </select>
           </div>
-
-          <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+          <div className="flex items-end">
             <button className="btn btnGhost" onClick={loadTransactions}>🔄 Làm mới</button>
           </div>
         </div>
@@ -89,46 +86,37 @@ export function AdminTransactions() {
 
       {/* TRANSACTION TABLE */}
       <div className="card cardPad">
-        <table style={{ width: '100%', borderCollapse: 'collapse', color: '#fff', textAlign: 'left' }}>
+        <table className="w-full border-collapse text-white text-left">
           <thead>
-            <tr style={{ color: '#666', borderBottom: '1px solid #333' }}>
-              <th style={{ padding: '15px 10px' }}>Mã giao dịch</th>
-              <th style={{ padding: '15px 10px' }}>Đối tượng</th>
-              <th style={{ padding: '15px 10px' }}>Số tiền</th>
-              <th style={{ padding: '15px 10px' }}>Ngày thực hiện</th>
-              <th style={{ padding: '15px 10px', textAlign: 'center' }}>Trạng thái</th>
+            <tr className="text-[#666] border-b border-[#333]">
+              <th className="py-4 px-2.5">Mã giao dịch</th>
+              <th className="py-4 px-2.5">Đối tượng</th>
+              <th className="py-4 px-2.5">Số tiền</th>
+              <th className="py-4 px-2.5">Ngày thực hiện</th>
+              <th className="py-4 px-2.5 text-center">Trạng thái</th>
             </tr>
           </thead>
           <tbody>
             {isFetching ? (
-              <tr><td colSpan={5} style={{ textAlign: 'center', padding: 40, color: '#888' }}>⏳ Đang tải dữ liệu giao dịch...</td></tr>
+              <tr><td colSpan={5} className="text-center py-10 text-[#888]">⏳ Đang tải dữ liệu giao dịch...</td></tr>
             ) : transactions.length === 0 ? (
-              <tr><td colSpan={5} style={{ textAlign: 'center', padding: 40, color: '#888' }}>Không có giao dịch nào được tìm thấy.</td></tr>
+              <tr><td colSpan={5} className="text-center py-10 text-[#888]">Không có giao dịch nào được tìm thấy.</td></tr>
             ) : (
               transactions.map((item) => {
                 const s = getStatusStyle(item.status);
                 return (
-                  <tr key={item.id} style={{ borderBottom: '1px solid #222' }}>
-                    <td style={{ padding: '15px 10px' }}>
-                      <code style={{ color: '#C77DFF', fontSize: 12 }}>#{item.id.slice(0, 8).toUpperCase()}</code>
+                  <tr key={item.id} className="border-b border-[#222]">
+                    <td className="py-4 px-2.5">
+                      <code className="text-[#C77DFF] text-xs">#{item.id.slice(0, 8).toUpperCase()}</code>
                     </td>
-                    <td style={{ padding: '15px 10px' }}>
-                      <div style={{ fontWeight: 600 }}>{item.actor_type}</div>
-                      <div style={{ fontSize: 11, color: '#555' }}>{item.user?.email || item.merchant?.email || 'N/A'}</div>
+                    <td className="py-4 px-2.5">
+                      <div className="font-semibold">{item.actor_type}</div>
+                      <div className="text-[11px] text-[#555]">{item.user?.email || item.merchant?.email || 'N/A'}</div>
                     </td>
-                    <td style={{ padding: '15px 10px', fontWeight: 800, color: item.status === 'SUCCESS' ? '#00C853' : '#fff' }}>
-                      {formatCurrency(item.amount)}
-                    </td>
-                    <td style={{ padding: '15px 10px', color: '#aaa', fontSize: 13 }}>
-                      {new Date(item.created_at || item.createdAt).toLocaleString('vi-VN')}
-                    </td>
-                    <td style={{ padding: '15px 10px', textAlign: 'center' }}>
-                      <span style={{ 
-                        padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700,
-                        background: s.bg, color: s.color, border: `1px solid ${s.color}33`
-                      }}>
-                        {s.text}
-                      </span>
+                    <td className={`py-4 px-2.5 font-extrabold ${item.status === 'SUCCESS' ? 'text-green-600' : 'text-white'}`}>{formatCurrency(item.amount)}</td>
+                    <td className="py-4 px-2.5 text-[#aaa] text-sm">{new Date(item.created_at || item.createdAt).toLocaleString('vi-VN')}</td>
+                    <td className="py-4 px-2.5 text-center">
+                      <span className="px-3 py-1 rounded-full text-[11px] font-bold" style={{ background: s.bg, color: s.color, border: `1px solid ${s.color}33` }}>{s.text}</span>
                     </td>
                   </tr>
                 );
