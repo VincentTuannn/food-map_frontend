@@ -1,11 +1,32 @@
-import { useState } from 'react'
-import MapView, { Marker, type ViewState } from 'react-map-gl'
-import 'mapbox-gl/dist/mapbox-gl.css'
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet'
+import 'leaflet/dist/leaflet.css'
+import L from 'leaflet'
 import { createMerchantPoi, deleteMerchantPoi, updateMerchantPoi } from '../../../api/services/merchant'
 import { MAPBOX_TOKEN } from '../merchantConstants'
 import { fmtDate, fmtRating } from '../merchantHelpers'
 import type { Poi } from '../merchantTypes'
 import { StatusBadge } from '../components/StatusBadge'
+
+// Fix Leaflet icons
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+let DefaultIcon = L.icon({
+    iconUrl: icon,
+    shadowUrl: iconShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41]
+});
+L.Marker.prototype.options.icon = DefaultIcon;
+
+// Child component to handle map clicks
+function MapEvents({ onLocationSelect }: { onLocationSelect: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    click(e) {
+      onLocationSelect(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+}
 
 export function PoisSection({ pois, setPois, toast }: { pois: Poi[]; setPois: (p: Poi[]) => void; toast: (m: string) => void }) {
   const [showForm, setShowForm] = useState(false)
@@ -14,14 +35,8 @@ export function PoisSection({ pois, setPois, toast }: { pois: Poi[]; setPois: (p
   const [addressQuery, setAddressQuery] = useState('')
   const [addressLabel, setAddressLabel] = useState('')
   const [coord, setCoord] = useState<{ lat: number; lng: number } | null>(null)
-  const [mapView, setMapView] = useState<ViewState>({
-    longitude: 106.700806,
-    latitude: 10.776889,
-    zoom: 14,
-    bearing: 0,
-    pitch: 0,
-    padding: { top: 0, right: 0, bottom: 0, left: 0 },
-  })
+  const [mapCenter, setMapCenter] = useState<[number, number]>([10.776889, 106.700806])
+  const [mapZoom, setMapZoom] = useState(14)
   const [geoLoading, setGeoLoading] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -44,7 +59,8 @@ export function PoisSection({ pois, setPois, toast }: { pois: Poi[]; setPois: (p
       const latNum = Number(nextLat)
       const lngNum = Number(nextLng)
       setCoord({ lat: latNum, lng: lngNum })
-      setMapView((v) => ({ ...v, latitude: latNum, longitude: lngNum, zoom: 15 }))
+      setMapCenter([latNum, lngNum])
+      setMapZoom(15)
     }
     setEditId(p.id)
     setShowForm(true)
@@ -52,7 +68,7 @@ export function PoisSection({ pois, setPois, toast }: { pois: Poi[]; setPois: (p
 
   const updateCoord = (lng: number, lat: number, label?: string) => {
     setCoord({ lat, lng })
-    setMapView((v) => ({ ...v, latitude: lat, longitude: lng, zoom: Math.max(v.zoom, 14) }))
+    setMapCenter([lat, lng])
     if (label) setAddressLabel(label)
   }
 
@@ -153,26 +169,22 @@ export function PoisSection({ pois, setPois, toast }: { pois: Poi[]; setPois: (p
               </div>
               <div className="md-map-shell">
                 <div className="md-map-bar">Chọn vị trí trên bản đồ</div>
-                {MAPBOX_TOKEN ? (
                   <div className="md-map">
-                    <MapView
-                      {...mapView}
-                      onMove={(evt) => setMapView(evt.viewState)}
-                      onClick={(evt) => updateCoord(evt.lngLat.lng, evt.lngLat.lat)}
-                      mapStyle="mapbox://styles/mapbox/streets-v12"
-                      mapboxAccessToken={MAPBOX_TOKEN}
+                    <MapContainer
+                      center={mapCenter}
+                      zoom={mapZoom}
                       style={{ width: '100%', height: '100%' }}
                     >
+                      <TileLayer
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        attribution='&copy; OpenStreetMap contributors'
+                      />
+                      <MapEvents onLocationSelect={(lat, lng) => updateCoord(lng, lat)} />
                       {coord && (
-                        <Marker longitude={coord.lng} latitude={coord.lat} anchor="center">
-                          <div className="md-marker" />
-                        </Marker>
+                        <Marker position={[coord.lat, coord.lng]} />
                       )}
-                    </MapView>
+                    </MapContainer>
                   </div>
-                ) : (
-                  <div className="md-map-fallback">Thiếu MAPBOX token để hiển thị bản đồ</div>
-                )}
               </div>
               <div className="md-field">
                 <label className="md-label">Bán kính kích hoạt (mét)</label>

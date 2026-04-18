@@ -77,6 +77,22 @@ export const adminApi = {
 
   deletePoi: (id: string) => apiFetch(`/admin/pois/${id}`, { method: 'DELETE' }),
 
+  // Admin Create POI (admin tạo POI trực tiếp, không cần merchant)
+  createPoi: (data: { name: string; lat: number; lng: number; trigger_radius?: number; status?: string }) =>
+    apiFetch('/admin/pois', {
+      method: 'POST',
+      headers: JSON_HEADERS,
+      body: JSON.stringify(data),
+    }),
+
+  // Admin Update POI (sửa tên, tọa độ, trạng thái)
+  updatePoi: (id: string, data: { name?: string; lat?: number; lng?: number; trigger_radius?: number; status?: string }) =>
+    apiFetch(`/admin/pois/${id}`, {
+      method: 'PUT',
+      headers: JSON_HEADERS,
+      body: JSON.stringify(data),
+    }),
+
   // 6. REVIEWS (KIỂM DUYỆT ĐÁNH GIÁ)
   getReviews: (page = 1) => apiFetch<any>(`/admin/reviews?page=${page}&limit=10`),
   
@@ -93,6 +109,14 @@ export const adminApi = {
     }),
 
   deleteTour: (id: string) => apiFetch(`/admin/tours/${id}`, { method: 'DELETE' }),
+
+  // Admin Update Tour (sửa tên, mô tả, sắp xếp lại POIs)
+  updateTour: (id: string, data: { name?: string; description?: string; poi_ids?: string[] }) =>
+    apiFetch(`/admin/tours/${id}`, {
+      method: 'PUT',
+      headers: JSON_HEADERS,
+      body: JSON.stringify(data),
+    }),
 
   // 8. PROMOTIONS (MÃ KHUYẾN MÃI)
   getPromotions: () => apiFetch<any>('/admin/promotions'),
@@ -111,4 +135,7 @@ export const adminApi = {
   // 10. TRACKING LOGS (NHẬT KÝ HỆ THỐNG)
   getTrackingLogs: (event_type?: string) => 
     apiFetch<any>(`/admin/tracking-logs?event_type=${event_type || ''}`),
+
+  // 11. ACTIVE USERS (THỐNG KÊ THIẾT BỊ ĐANG HOẠT ĐỘNG)
+  getActiveUsers: () => apiFetch<any>('/admin/active-users'),
 };

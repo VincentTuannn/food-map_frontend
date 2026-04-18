@@ -9,6 +9,9 @@ export function AdminDashboard() {
   const [stats, setStats] = useState<any>(null);
   const [isFetching, setIsFetching] = useState(true);
 
+  // === Active Users: real-time count with auto-refresh ===
+  const [activeUsersCount, setActiveUsersCount] = useState<number>(0);
+
   const loadDashboard = async () => {
     setIsFetching(true);
     try {
@@ -51,6 +54,21 @@ export function AdminDashboard() {
 
   useEffect(() => { loadDashboard(); }, []);
 
+  // Auto-refresh active users count every 30 seconds
+  useEffect(() => {
+    const fetchActiveUsers = async () => {
+      try {
+        const res = await adminApi.getActiveUsers();
+        if (res.success && res.data) {
+          setActiveUsersCount(res.data.count || 0);
+        }
+      } catch { /* silent */ }
+    };
+    fetchActiveUsers();
+    const interval = setInterval(fetchActiveUsers, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   if (isFetching) return <div style={{ color: '#888', textAlign: 'center', padding: 50 }}>⏳ Đang tổng hợp số liệu hệ thống...</div>;
 
   // Thành phần thẻ chỉ số nhỏ (Đã thêm tính năng Click chuyển trang)
@@ -79,6 +97,7 @@ export function AdminDashboard() {
       
       {/* 1. HÀNG ĐẦU: CÁC CON SỐ TỔNG QUÁT (Đã gắn link) */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
+        <StatCard title="Đang hoạt động" value={activeUsersCount} icon="🟢" color="#00E676" />
         <StatCard title="Tổng Doanh thu" value={stats?.totalRevenue} icon="💰" color="#00C853" path="/admin/transactions" />
         <StatCard title="Khách du lịch" value={stats?.totalUsers} icon="👥" color="#7B2CBF" path="/admin/users" />
         <StatCard title="Đối tác (Merchant)" value={stats?.totalMerchants} icon="🏪" color="#9D4EDD" path="/admin/merchants" />

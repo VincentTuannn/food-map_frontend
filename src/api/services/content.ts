@@ -37,7 +37,7 @@ const CACHE_PREFIX = 'poi-content:'
 const inFlightRequests = new Map<string, Promise<PoiContentResponse>>()
 
 const DEFAULT_VOICE_MAP: Record<string, { female: string; male: string }> = {
-  'vi-VN': { female: 'Jacek', male: 'Peter' },
+  'vi-VN': { female: 'en-US-natalie', male: 'en-UK-peter' },
   'en-US': { female: 'Natalie', male: 'Ken' },
   'ja-JP': { female: 'Hina', male: 'Denki' },
   'ko-KR': { female: 'Gyeong', male: 'Hwan' },

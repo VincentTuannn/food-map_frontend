@@ -87,7 +87,7 @@ export const useAppStore = create<AppState>((set) => ({
   tourCode: undefined,
   setTourCode: (tourCode) => set({ tourCode }),
 
-  radiusMeters: 80,
+  radiusMeters: 10000,
   setRadiusMeters: (radiusMeters) => set({ radiusMeters }),
 
   position: undefined,

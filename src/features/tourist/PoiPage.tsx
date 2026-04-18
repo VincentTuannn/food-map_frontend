@@ -33,6 +33,8 @@ export function PoiDetails({ poi }: { poi: Poi }) {
   const [selectedVoiceURI, setSelectedVoiceURI] = useState('')
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
+  const [hasPlayedAuto, setHasPlayedAuto] = useState(false)
+
   useEffect(() => {
     const cached = getCachedPoiContent(poi.id, language)
     if (cached) {
@@ -40,10 +42,30 @@ export function PoiDetails({ poi }: { poi: Poi }) {
     }
     setIsLoadingContent(true)
     getPoiContent(poi.id, language, { preferCache: true })
-      .then(res => setPoiContent(res?.data || res))
+      .then(res => {
+        const data = res?.data || res
+        setPoiContent(data)
+      })
       .catch(err => console.error("Failed to fetch POI content:", err))
       .finally(() => setIsLoadingContent(false))
   }, [poi.id, language])
+
+  // Auto-play introduction when loaded
+  useEffect(() => {
+    if (poiContent && !isLoadingContent && !hasPlayedAuto) {
+      // Small delay to ensure UI is ready
+      const timer = setTimeout(() => {
+        playAudio()
+        setHasPlayedAuto(true)
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [poiContent, isLoadingContent, hasPlayedAuto])
+
+  // Reset auto-play when POI changes
+  useEffect(() => {
+    setHasPlayedAuto(false)
+  }, [poi.id])
 
   useEffect(() => {
     const loadVoices = () => {

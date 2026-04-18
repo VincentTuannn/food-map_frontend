@@ -22,10 +22,28 @@ import { FloatingActions } from "./components/FloatingActions";
 import { PoiDetailsModal } from "./components/PoiDetailsModal";
 import { PoiListSheet } from "./components/PoiListSheet";
 
-import MapView, { Layer, Marker, Popup, Source } from "react-map-gl";
-import "mapbox-gl/dist/mapbox-gl.css";
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
 
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
+// Fix cho icon mặc định của Leaflet
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+let DefaultIcon = L.icon({
+    iconUrl: icon,
+    shadowUrl: iconShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41]
+});
+L.Marker.prototype.options.icon = DefaultIcon;
+
+// Helper component để update view khi position thay đổi
+function ChangeView({ center, zoom }: { center: [number, number], zoom: number }) {
+  const map = useMap();
+  map.setView(center, zoom);
+  return null;
+}
 
 function speak(text: string, lang: string, voiceURI?: string) {
   if (!("speechSynthesis" in window)) return;
@@ -411,9 +429,20 @@ export function MapPage() {
 
   useEffect(() => {
     if (tourPois.length === 0) return;
-    tourPois.forEach((poi) => {
+    
+    // Tìm các POI chưa có tên
+    const needsName = tourPois.filter(poi => {
       const key = tourPoiKey(poi);
-      if (!key || (poi.name && poi.name.trim()) || tourPoiNameRef.current.has(key)) return;
+      return key && (!poi.name || poi.name.trim() === "") && !tourPoiNameRef.current.has(key);
+    });
+
+    if (needsName.length === 0) return;
+
+    // Chỉ Fetch một vài cái mỗi lần để tránh 429
+    const batch = needsName.slice(0, 3);
+    
+    batch.forEach((poi) => {
+      const key = tourPoiKey(poi);
       tourPoiNameRef.current.add(key);
       getPoiById(key)
         .then((res) => {
@@ -423,7 +452,10 @@ export function MapPage() {
             prev.map((item) => (tourPoiKey(item) === key ? { ...item, name: apiPoi.name } : item))
           );
         })
-        .catch(() => undefined);
+        .catch(() => {
+           // Nếu lỗi thì cho phép thử lại sau
+           setTimeout(() => tourPoiNameRef.current.delete(key), 5000);
+        });
     });
   }, [tourPois]);
 
@@ -486,10 +518,15 @@ export function MapPage() {
 
     const req = getNearbyPois({ lat: position.lat, lng: position.lng, radiusMeters, limit: 100 })
       .then((res) => {
-        nearbyCacheRef.current.set(cacheKey, { ts: Date.now(), items: res.items });
-        setApiPois(res.items);
+        const flatPois = (res.items || []).map((item: any) => item.p || item);
+        nearbyCacheRef.current.set(cacheKey, { ts: Date.now(), items: flatPois });
+        setApiPois(flatPois);
       })
-      .catch(() => showToast({ title: "Không tải được POI" }))
+      .catch(() => {
+        showToast({ title: "Không tải được POI" });
+        lastNearbyKeyRef.current = null;
+        lastNearbyFetchRef.current = null;
+      })
       .finally(() => {
         inFlightNearbyRef.current = null;
       });
@@ -648,7 +685,7 @@ export function MapPage() {
 
   const murfLocale = selectedSpeechLocale || speechLang;
   const murfVoicesByLocale: Record<string, { female: string; male: string }> = {
-    "vi-VN": { female: "Jacek", male: "Peter" },
+    "vi-VN": { female: "en-US-natalie", male: "en-UK-peter" },
     "en-US": { female: "Natalie", male: "Ken" },
     "ja-JP": { female: "Hina", male: "Denki" },
     "ko-KR": { female: "Gyeong", male: "Hwan" },
@@ -711,97 +748,94 @@ export function MapPage() {
     <AppShell showBottomNav={!hideBottomNav}>
       {/* 1. LAYER MAP (FIXED TO BACKGROUND) */}
       <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", zIndex: 0 }}>
-        <MapView
-          initialViewState={{
-            longitude: position ? position.lng : 106.6669,
-            latitude: position ? position.lat : 10.7548,
-            zoom: 16,
-          }}
-          mapStyle={theme === 'dark' ? "mapbox://styles/mapbox/navigation-night-v1" : "mapbox://styles/mapbox/streets-v12"}
-          mapboxAccessToken={MAPBOX_TOKEN}
+        <MapContainer
+          center={position ? [position.lat, position.lng] : [10.7548, 106.6669]}
+          zoom={16}
           style={{ height: "100%", width: "100%", zIndex: 1 }}
-          onClick={() => {
-            setSelectedPoi(null);
-            setViewingPoi(null);
-            setViewingPoiId(null);
-            setIsViewingPoiLoading(false);
-          }}
+          zoomControl={false}
         >
-          {routeGeoJson && (
-            <Source id="route" type="geojson" data={routeGeoJson}>
-              <Layer
-                id="route-line"
-                type="line"
-                paint={{
-                  "line-color": theme === 'dark' ? "#fb7185" : "#f43f5e",
-                  "line-width": 5,
-                  "line-opacity": 0.9,
-                }}
-              />
-            </Source>
+          <ChangeView 
+            center={position ? [position.lat, position.lng] : [10.7548, 106.6669]} 
+            zoom={16} 
+          />
+          <TileLayer
+            url={theme === 'dark' 
+              ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+              : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            }
+            attribution='&copy; OpenStreetMap contributors'
+          />
+          
+          {route?.geometry && route.geometry.length > 0 && (
+            <Polyline
+              positions={route.geometry.map(coord => [coord[1], coord[0]] as [number, number])}
+              pathOptions={{
+                color: theme === 'dark' ? "#fb7185" : "#f43f5e",
+                weight: 5,
+                opacity: 0.9
+              }}
+            />
           )}
-          {position && <Marker longitude={position.lng} latitude={position.lat} color="#3b82f6" />}
+
+          {position && (
+            <Marker position={[position.lat, position.lng]}>
+               <Popup>Vị trí của bạn</Popup>
+            </Marker>
+          )}
 
           {(tourOnly && tourMarkerPois.length ? tourMarkerPois : filteredPois).map(({ p: poi }) => (
             <Marker
               key={poi.id}
-              longitude={poi.lng}
-              latitude={poi.lat}
-              color="#ef4444"
-              onClick={(e: any) => {
-                e.originalEvent.stopPropagation();
-                setSelectedPoi(poi);
+              position={[Number(poi.lat), Number(poi.lng)]}
+              eventHandlers={{
+                click: () => {
+                  setSelectedPoi(poi);
+                },
               }}
-            />
-          ))}
-
-          {selectedPoi && (
-            <Popup
-              longitude={selectedPoi.lng}
-              latitude={selectedPoi.lat}
-              anchor="bottom"
-              onClose={() => setSelectedPoi(null)}
-              closeOnClick={true}
-              closeButton={false}
-              maxWidth="260px"
-              style={{ zIndex: 10 }}
             >
-              <div className="poiPopup">
-                {(selectedPoi.imageUrl || selectedPoi.image_url) && (
-                  <div className="poiPopupMedia">
-                    <img
-                      src={selectedPoi.imageUrl || selectedPoi.image_url}
-                      alt={selectedPoi.name}
-                    />
+              {selectedPoi?.id === poi.id && (
+                <Popup
+                  position={[poi.lat, poi.lng]}
+                  onClose={() => setSelectedPoi(null)}
+                >
+                  <div className="poiPopup">
+                    {(selectedPoi.imageUrl || selectedPoi.image_url) && (
+                      <div className="poiPopupMedia">
+                        <img
+                          src={selectedPoi.imageUrl || selectedPoi.image_url}
+                          alt={selectedPoi.name}
+                        />
+                      </div>
+                    )}
+                    <div className="poiPopupBody">
+                      <div className="poiPopupTitle">{selectedPoi.name}</div>
+                      <div className="poiPopupSub">Nhấn để xem chi tiết hoặc dẫn đường nhanh.</div>
+                      <div className="poiPopupActions">
+                        <button className="btn btnPrimary" onClick={() => openPoiDetails(selectedPoi)}>
+                          Xem chi tiết
+                        </button>
+                        <button className="btn" onClick={() => handleDirections(selectedPoi)}>
+                          Chỉ đường
+                        </button>
+                        <button
+                          className="btn"
+                          disabled={isTtsLoading}
+                          onClick={() => {
+                            const msg = getPoiShortText(selectedPoi);
+                            playTTS(selectedPoi, msg, speechLang, selectedSpeechLocale);
+                          }}
+                        >
+                          {isTtsLoading ? <span className="spinner" aria-hidden="true" /> : "🔊"}
+                          <span>{isTtsLoading ? "Đang tạo" : "Nghe"}</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                )}
-                <div className="poiPopupBody">
-                  <div className="poiPopupTitle">{selectedPoi.name}</div>
-                  <div className="poiPopupSub">Nhấn để xem chi tiết hoặc dẫn đường nhanh.</div>
-                  <div className="poiPopupActions">
-                    <button className="btn btnPrimary" onClick={() => openPoiDetails(selectedPoi)}>
-                      Xem chi tiết
-                    </button>
-                    <button className="btn" onClick={() => handleDirections(selectedPoi)}>
-                      Chỉ đường
-                    </button>
-                    <button
-                      className="btn"
-                      disabled={isTtsLoading}
-                      onClick={() => {
-                        const msg = getPoiShortText(selectedPoi);
-                        playTTS(selectedPoi, msg, speechLang, selectedSpeechLocale);
-                      }}
-                    >
-                      {isTtsLoading ? <span className="spinner" aria-hidden="true" /> : "🔊"}
-                      <span>{isTtsLoading ? "Đang tạo" : "Nghe"}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </Popup>
-          )}
-        </MapView>
+                </Popup>
+              )}
+            </Marker>
+          ))}
+        </MapContainer>
       </div>
 
       {/* 2. LAYER OVERLAY (FLOATING PANELS) */}

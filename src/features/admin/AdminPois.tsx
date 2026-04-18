@@ -1,8 +1,36 @@
 import { useState, useEffect } from 'react';
-import Map, { Marker, NavigationControl, Popup } from 'react-map-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 import { adminApi } from '../../api/services/admin';
 import { useAppStore } from '../../shared/store/appStore';
+
+// Fix Leaflet icons
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+let DefaultIcon = L.icon({
+    iconUrl: icon,
+    shadowUrl: iconShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41]
+});
+L.Marker.prototype.options.icon = DefaultIcon;
+
+function ChangeView({ center, zoom }: { center: [number, number], zoom: number }) {
+  const map = useMap();
+  map.setView(center, zoom);
+  return null;
+}
+
+// Component bắt sự kiện click trên map để lấy tọa độ tạo POI mới
+function MapClickHandler({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    click(e) {
+      onMapClick(e.latlng.lat, e.latlng.lng);
+    }
+  });
+  return null;
+}
 
 // 1. Hàm giải mã đa năng
 const parseLocation = (location: any) => {
@@ -23,13 +51,15 @@ const parseLocation = (location: any) => {
       const lat = view.getFloat64(offset + 8, true);
       return { lat: lat.toFixed(6), lng: lng.toFixed(6) };
     }
+    // Handle lat/lng fields from our new non-PostGIS schema
+    if (location.lat != null && location.lng != null) {
+      return { lat: Number(location.lat).toFixed(6), lng: Number(location.lng).toFixed(6) };
+    }
     return { lat: 'N/A', lng: 'N/A' };
   } catch (e) {
     return { lat: 'N/A', lng: 'N/A' };
   }
 };
-
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN; 
 
 export function AdminPois() {
   const showToast = useAppStore((s) => s.showToast);
@@ -39,6 +69,16 @@ export function AdminPois() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPoi, setSelectedPoi] = useState<any>(null);
+
+  // === NEW: Create POI Modal state ===
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [newPoi, setNewPoi] = useState({ name: '', lat: '', lng: '' });
+  const [isCreating, setIsCreating] = useState(false);
+
+  // === NEW: Edit POI Modal state ===
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editPoi, setEditPoi] = useState<any>(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   const [filterStatus, setFilterStatus] = useState('');
   const [searchName, setSearchName] = useState('');
@@ -56,7 +96,8 @@ export function AdminPois() {
       const data = Array.isArray(res) ? res : res?.data || [];
       
       const processedData = data.map((p: any) => {
-        const coords = parseLocation(p.location);
+        // Fallback to p directly if p.location is missing, as we might be using lat/lng fields now
+        const coords = parseLocation(p.location || p);
         return { ...p, decodedLat: coords.lat, decodedLng: coords.lng };
       });
 
@@ -129,6 +170,59 @@ export function AdminPois() {
     }
   };
 
+  // === NEW: Handle map click → fill Create POI form ===
+  const handleMapClick = (lat: number, lng: number) => {
+    setNewPoi({ name: '', lat: lat.toFixed(6), lng: lng.toFixed(6) });
+    setIsCreateModalOpen(true);
+  };
+
+  // === NEW: Handle Create POI submit ===
+  const handleCreatePoi = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPoi.name.trim()) {
+      showToast({ title: '⚠️ Vui lòng nhập tên địa điểm' });
+      return;
+    }
+    setIsCreating(true);
+    try {
+      await adminApi.createPoi({
+        name: newPoi.name,
+        lat: parseFloat(newPoi.lat),
+        lng: parseFloat(newPoi.lng),
+      });
+      showToast({ title: '✅ Đã tạo địa điểm mới!' });
+      setIsCreateModalOpen(false);
+      setNewPoi({ name: '', lat: '', lng: '' });
+      loadPois();
+    } catch (error: any) {
+      showToast({ title: `❌ Lỗi: ${error.message || 'Không thể tạo POI'}` });
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  // === NEW: Handle Edit POI submit ===
+  const handleEditPoi = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editPoi) return;
+    setIsEditing(true);
+    try {
+      await adminApi.updatePoi(editPoi.id, {
+        name: editPoi.name,
+        lat: parseFloat(editPoi.decodedLat),
+        lng: parseFloat(editPoi.decodedLng),
+      });
+      showToast({ title: '✅ Đã cập nhật địa điểm!' });
+      setIsEditModalOpen(false);
+      setEditPoi(null);
+      loadPois();
+    } catch (error: any) {
+      showToast({ title: `❌ Lỗi: ${error.message || 'Không thể cập nhật'}` });
+    } finally {
+      setIsEditing(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'ACTIVE': return '#00C853';
@@ -141,78 +235,53 @@ export function AdminPois() {
   return (
     <div style={{ animation: 'fadeIn 0.3s', display: 'flex', flexDirection: 'column', gap: 20 }}>
       
-      {/* ===== PHẦN 1: BẢN ĐỒ MAPBOX ===== */}
+      {/* ===== PHẦN 1: BẢN ĐỒ LEAFLET ===== */}
       <div className="card" style={{ height: '400px', overflow: 'hidden', border: '1px solid #333', position: 'relative' }}>
-        {!MAPBOX_TOKEN ? (
-          <div style={{ padding: 20, color: '#ff4d4f', textAlign: 'center', marginTop: 100 }}>
-             ⚠️ Không tìm thấy Mapbox Token.
+          {/* Hướng dẫn click map */}
+          <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 1000, background: 'rgba(0,0,0,0.7)', color: '#fff', padding: '6px 12px', borderRadius: 8, fontSize: 11, pointerEvents: 'none' }}>
+            💡 Click trên bản đồ để tạo POI mới
           </div>
-        ) : (
-          <Map
-            {...viewState}
-            onMove={evt => setViewState(evt.viewState)}
-            mapStyle="mapbox://styles/ntnhan3110/cmmz0ajok004s01r0awao4egc"
-            mapboxAccessToken={MAPBOX_TOKEN}
+          <MapContainer
+            center={[viewState.latitude, viewState.longitude]}
+            zoom={viewState.zoom}
             style={{ width: '100%', height: '100%' }}
           >
-            <NavigationControl position="top-right" />
+            <ChangeView center={[viewState.latitude, viewState.longitude]} zoom={viewState.zoom} />
+            <MapClickHandler onMapClick={handleMapClick} />
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution='&copy; OpenStreetMap contributors'
+            />
             
             {pois.map(poi => {
-              // NẾU ẨN HOẶC KHÔNG CÓ TỌA ĐỘ -> KHÔNG VẼ LÊN BẢN ĐỒ
               if (poi.status === 'INACTIVE' || poi.decodedLat === 'N/A') return null;
-
-              // Chọn màu Pin
-              let pinColor = '#FF3B30'; // Đỏ (REJECTED)
-              if (poi.status === 'ACTIVE') pinColor = '#00C853'; // Xanh lá
-              if (poi.status === 'PENDING') pinColor = '#FFCC00'; // Vàng
 
               return (
                 <Marker 
                   key={poi.id} 
-                  longitude={Number(poi.decodedLng)} 
-                  latitude={Number(poi.decodedLat)} 
-                  anchor="bottom"
-                  onClick={e => {
-                    e.originalEvent.stopPropagation();
-                    handleFlyToPoi(poi);
+                  position={[Number(poi.decodedLat), Number(poi.decodedLng)]}
+                  eventHandlers={{
+                    click: () => handleFlyToPoi(poi)
                   }}
                 >
-                  <svg 
-                    width="36" height="36" viewBox="0 0 24 24" 
-                    style={{ 
-                      cursor: 'pointer',
-                      filter: selectedPoi?.id === poi.id ? `drop-shadow(0 0 12px ${pinColor})` : 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))',
-                      transform: selectedPoi?.id === poi.id ? 'scale(1.2)' : 'scale(1)',
-                      transition: 'all 0.3s'
-                    }}
-                  >
-                    <path 
-                      fill={pinColor} 
-                      d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
-                    />
-                  </svg>
+                  <Popup>
+                    <div style={{ color: '#000', padding: '5px', fontWeight: 700 }}>{poi.name}</div>
+                    <div style={{ color: '#666', fontSize: '12px' }}>Trạng thái: {poi.status}</div>
+                  </Popup>
                 </Marker>
               );
             })}
-
-            {selectedPoi && selectedPoi.decodedLat !== 'N/A' && selectedPoi.status !== 'INACTIVE' && (
-              <Popup
-                longitude={Number(selectedPoi.decodedLng)}
-                latitude={Number(selectedPoi.decodedLat)}
-                anchor="top"
-                onClose={() => setSelectedPoi(null)}
-                closeButton={false}
-              >
-                <div style={{ color: '#000', padding: '5px', fontWeight: 700 }}>{selectedPoi.name}</div>
-              </Popup>
-            )}
-          </Map>
-        )}
+          </MapContainer>
       </div>
 
       {/* ===== PHẦN 2: BỘ LỌC ===== */}
       <div className="card cardPad">
-        <h2 style={{ margin: '0 0 20px 0', color: '#8B7355', fontSize: 24, fontWeight: 800 }}>📍 Duyệt địa điểm (POIs)</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <h2 style={{ margin: 0, color: '#8B7355', fontSize: 24, fontWeight: 800 }}>📍 Duyệt địa điểm (POIs)</h2>
+          <button className="btn btnPrimary" onClick={() => { setNewPoi({ name: '', lat: '10.762622', lng: '106.660172' }); setIsCreateModalOpen(true); }}>
+            + Thêm địa điểm
+          </button>
+        </div>
         <div style={{ display: 'flex', gap: 12 }}>
           <input 
             className="input" placeholder="Tìm tên địa điểm..." 
@@ -269,10 +338,17 @@ export function AdminPois() {
                 <td style={{ padding: 15, textAlign: 'right' }}>
                   <button 
                     className="btn btnGhost" 
-                    style={{ padding: '6px 12px', fontSize: 12, marginRight: 8 }} 
+                    style={{ padding: '6px 12px', fontSize: 12, marginRight: 4 }} 
+                    onClick={(e) => { e.stopPropagation(); setEditPoi({ ...poi }); setIsEditModalOpen(true); }}
+                  >
+                    ✏️ Sửa
+                  </button>
+                  <button 
+                    className="btn btnGhost" 
+                    style={{ padding: '6px 12px', fontSize: 12, marginRight: 4 }} 
                     onClick={(e) => { e.stopPropagation(); setSelectedPoi(poi); setIsModalOpen(true); }}
                   >
-                    👁️ Xem & Duyệt
+                    👁️ Duyệt
                   </button>
                   <button className="btn" style={{ color: '#ff4d4f' }} onClick={(e) => { e.stopPropagation(); handleDeletePoi(poi.id); }}>🗑️</button>
                 </td>
@@ -282,7 +358,7 @@ export function AdminPois() {
         </table>
       </div>
 
-      {/* ===== PHẦN 4: MODAL CHI TIẾT ===== */}
+      {/* ===== PHẦN 4: MODAL CHI TIẾT (DUYỆT) ===== */}
       {isModalOpen && selectedPoi && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)' }}>
           <div style={{ width: 650, background: '#1E1E2D', borderRadius: 12, border: '1px solid #444', overflow: 'hidden', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
@@ -327,6 +403,103 @@ export function AdminPois() {
                <button className="btn" style={{ background: '#888', color: '#fff' }} onClick={() => handleUpdateStatus(selectedPoi.id, 'INACTIVE')}>Ẩn</button>
                <button className="btn btnPrimary" onClick={() => handleUpdateStatus(selectedPoi.id, 'ACTIVE')}>✅ Duyệt hoạt động</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== PHẦN 5: MODAL TẠO POI MỚI ===== */}
+      {isCreateModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)' }}>
+          <div style={{ width: 450, background: '#1E1E2D', borderRadius: 12, border: '1px solid #444', overflow: 'hidden' }}>
+            <div className="rowBetween" style={{ padding: '20px 24px', borderBottom: '1px solid #333' }}>
+              <h3 style={{ margin: 0, color: '#fff' }}>📍 Thêm địa điểm mới</h3>
+              <button onClick={() => setIsCreateModalOpen(false)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 20 }}>✕</button>
+            </div>
+
+            <form onSubmit={handleCreatePoi} style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ background: 'rgba(123,44,191,0.1)', padding: 10, borderRadius: 8, fontSize: 12, color: '#C77DFF' }}>
+                💡 Click trên bản đồ để tự động lấy tọa độ, hoặc nhập thủ công bên dưới.
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: 8, fontSize: 13, color: '#aaa' }}>Tên địa điểm *</label>
+                <input
+                  required className="input" placeholder="Ví dụ: Phở Thìn Bờ Hồ"
+                  value={newPoi.name} onChange={e => setNewPoi({ ...newPoi, name: e.target.value })}
+                  autoFocus
+                />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: 8, fontSize: 13, color: '#aaa' }}>Latitude *</label>
+                  <input
+                    required className="input" type="number" step="any" placeholder="10.762622"
+                    value={newPoi.lat} onChange={e => setNewPoi({ ...newPoi, lat: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: 8, fontSize: 13, color: '#aaa' }}>Longitude *</label>
+                  <input
+                    required className="input" type="number" step="any" placeholder="106.660172"
+                    value={newPoi.lng} onChange={e => setNewPoi({ ...newPoi, lng: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 12, marginTop: 10 }}>
+                <button type="button" className="btn" style={{ flex: 1 }} onClick={() => setIsCreateModalOpen(false)}>Hủy</button>
+                <button type="submit" className="btn btnPrimary" style={{ flex: 2 }} disabled={isCreating}>
+                  {isCreating ? 'Đang tạo...' : '📍 Tạo địa điểm'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ===== PHẦN 6: MODAL CHỈNH SỬA POI ===== */}
+      {isEditModalOpen && editPoi && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)' }}>
+          <div style={{ width: 450, background: '#1E1E2D', borderRadius: 12, border: '1px solid #444', overflow: 'hidden' }}>
+            <div className="rowBetween" style={{ padding: '20px 24px', borderBottom: '1px solid #333' }}>
+              <h3 style={{ margin: 0, color: '#fff' }}>✏️ Chỉnh sửa địa điểm</h3>
+              <button onClick={() => setIsEditModalOpen(false)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 20 }}>✕</button>
+            </div>
+
+            <form onSubmit={handleEditPoi} style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ background: 'rgba(255,255,255,0.05)', padding: 10, borderRadius: 8, fontSize: 12, color: '#888' }}>
+                Đang chỉnh sửa: <b style={{ color: '#fff' }}>{editPoi.name}</b>
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: 8, fontSize: 13, color: '#aaa' }}>Tên địa điểm</label>
+                <input
+                  required className="input"
+                  value={editPoi.name} onChange={e => setEditPoi({ ...editPoi, name: e.target.value })}
+                />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: 8, fontSize: 13, color: '#aaa' }}>Latitude</label>
+                  <input
+                    required className="input" type="number" step="any"
+                    value={editPoi.decodedLat} onChange={e => setEditPoi({ ...editPoi, decodedLat: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: 8, fontSize: 13, color: '#aaa' }}>Longitude</label>
+                  <input
+                    required className="input" type="number" step="any"
+                    value={editPoi.decodedLng} onChange={e => setEditPoi({ ...editPoi, decodedLng: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 12, marginTop: 10 }}>
+                <button type="button" className="btn" style={{ flex: 1 }} onClick={() => setIsEditModalOpen(false)}>Hủy</button>
+                <button type="submit" className="btn btnPrimary" style={{ flex: 2 }} disabled={isEditing}>
+                  {isEditing ? 'Đang lưu...' : '💾 Lưu thay đổi'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
