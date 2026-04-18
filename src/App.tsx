@@ -54,11 +54,8 @@ import { AdminTours } from './features/admin/AdminTours'
 import { AdminPromotions } from './features/admin/AdminPromotions'
 import { AdminTransactions } from './features/admin/AdminTransactions'
 import { AdminTracking } from './features/admin/AdminTracking'
-<<<<<<< HEAD
 import { AdminActiveUsers } from './features/admin/AdminActiveUsers'
-=======
 import { AdminDevices } from './features/admin/AdminDevices'
->>>>>>> main
 
 // --- SHARED ---
 import { NotFoundPage } from './shared/ui/NotFoundPage'
@@ -117,10 +114,8 @@ export function App() {
         <Route path="*" element={<MerchantDashboardWrapper />} />
       </Route>
 
-<<<<<<< HEAD
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<AdminDashboard />} />
-        
         <Route path="dashboard" element={<AdminDashboard />} />
         <Route path="users" element={<AdminUsers />} />
         <Route path="merchants" element={<AdminMerchants />} />
@@ -132,25 +127,7 @@ export function App() {
         <Route path="transactions" element={<AdminTransactions />} />
         <Route path="tracking" element={<AdminTracking />} />
         <Route path="active-users" element={<AdminActiveUsers />} />
-=======
-      <Route path="/admin" element={<RoleRoute allowed={['ADMIN']} fallback="/admin/login" />}>
-        <Route element={<AdminLayout />}>
-          <Route index element={<AdminDashboard />} />
->>>>>>> main
-
-          <Route path="dashboard" element={<AdminDashboard />} />
-          <Route path="users" element={<AdminUsers />} />
-          <Route path="merchants" element={<AdminMerchants />} />
-          <Route path="accounts" element={<AdminAccounts />} />
-          <Route path="pois" element={<AdminPois />} />
-          <Route path="reviews" element={<AdminReviews />} />
-          <Route path="tours" element={<AdminTours />} />
-          <Route path="promotions" element={<AdminPromotions />} />
-          <Route path="transactions" element={<AdminTransactions />} />
-          <Route path="tracking" element={<AdminTracking />} />
-          <Route path="devices" element={<AdminDevices />} />
-
-        </Route>
+        <Route path="devices" element={<AdminDevices />} />
       </Route>
 
       {/* 5. CÁC ĐIỀU HƯỚNG CŨ (COMPATIBILITY) */}
