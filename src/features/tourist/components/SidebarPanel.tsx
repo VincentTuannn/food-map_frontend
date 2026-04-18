@@ -20,11 +20,22 @@ import {
   ChevronDown, ChevronLeft, Trash2, AlertCircle,
   Ticket as VoucherIcon, Share2, Phone, Globe, Heart,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { createOrUpdateReview } from '../../../api/services/reviews';
 
 import { apiFetch } from '../../../api/http';
 import { getPoiContent } from '../../../api/services/content';
+import { getReviewsByPoi } from '../../../api/services/reviews';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
+
+export interface PoiContent {
+  id: string;
+  poi_id: string;
+  language_code: string;
+  audio_url?: string;
+  description?: string;
+}
 
 export interface SidebarPoi {
   id?: string
@@ -43,6 +54,7 @@ export interface SidebarPoi {
   website?: string
   hours?: string
   priceRange?: string
+  PoiContents?: PoiContent[]
 }
 
 export interface TourStop extends SidebarPoi {
@@ -219,8 +231,17 @@ function POIDetailPanel({
   const [liked, setLiked] = useState(false);
   const [poiData, setPoiData] = useState<SidebarPoi | null>(poi);
   const [description, setDescription] = useState<string | undefined>(poi.short?.[language] ?? poi.description);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [isLoadingReviews, setIsLoadingReviews] = useState(false);
+  // Review submission state
+  const [reviewText, setReviewText] = useState('');
+  const [reviewStars, setReviewStars] = useState(5);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  // i18n
+  const { t } = useTranslation();
 
-  // Fetch POI details and content when POI or language changes
+  // Thông tin đầy đủ POI, ưu tiên lấy từ PoiContents đúng ngôn ngữ
   useEffect(() => {
     let isMounted = true;
     async function fetchPoiAndContent() {
@@ -228,12 +249,21 @@ function POIDetailPanel({
         // Fetch POI details
         const poiRes = await apiFetch(`/pois/${poi.id}`);
         if (isMounted && poiRes && typeof poiRes === 'object' && 'data' in poiRes && poiRes.data) {
-          setPoiData({ ...poi, ...poiRes.data });
-        }
-        // Fetch POI content/description
-        const contentRes = await getPoiContent(poi.id as string, language ?? '');
-        if (isMounted && contentRes && typeof contentRes === 'object' && 'data' in contentRes && contentRes.data && typeof contentRes.data === 'object' && 'description' in contentRes.data && contentRes.data.description) {
-          setDescription(contentRes.data.description);
+          // Cast to SidebarPoi to help TS
+          const fullPoi = { ...poi, ...poiRes.data } as SidebarPoi;
+          setPoiData(fullPoi);
+          // Lấy description đúng ngôn ngữ từ PoiContents nếu có
+          const langNorm = (language ?? '').toLowerCase();
+          let desc = undefined;
+          if (Array.isArray(fullPoi.PoiContents)) {
+            // Tìm đúng language_code
+            const found = fullPoi.PoiContents.find((c) => (c.language_code || '').toLowerCase().startsWith(langNorm));
+            if (found && found.description) desc = found.description;
+          }
+          setDescription(desc ?? poi.short?.[language] ?? poi.description);
+        } else {
+          setPoiData(poi);
+          setDescription(poi.short?.[language] ?? poi.description);
         }
       } catch {
         // fallback to initial props
@@ -246,6 +276,47 @@ function POIDetailPanel({
     fetchPoiAndContent();
     return () => { isMounted = false; };
   }, [poi.id, language]);
+
+  // Fetch reviews for POI
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchReviews() {
+      setIsLoadingReviews(true);
+      try {
+        const items = await getReviewsByPoi(poi.id!);
+        if (isMounted) setReviews(items || []);
+      } catch {
+        if (isMounted) setReviews([]);
+      } finally {
+        if (isMounted) setIsLoadingReviews(false);
+      }
+    }
+    if (poi.id) fetchReviews();
+    return () => { isMounted = false; };
+  }, [poi.id]);
+
+  // Submit review handler
+  async function handleSubmitReview(e: React.FormEvent) {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      await createOrUpdateReview({
+        poi_id: poi.id!,
+        rating: reviewStars,
+        comment: reviewText,
+      });
+      setReviewText('');
+      setReviewStars(5);
+      // Refresh reviews
+      const items = await getReviewsByPoi(poi.id!);
+      setReviews(items || []);
+    } catch (err) {
+      setSubmitError(t('tourist.poi.writeReviewError', 'Gửi đánh giá thất bại.'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   return (
     <div className="flex flex-col h-full" style={{ animation: 'sidebarSlideIn 0.3s cubic-bezier(0.22,1,0.36,1) both' }}>
@@ -319,6 +390,73 @@ function POIDetailPanel({
             )}
           </div>
         )}
+
+        {/* Reviews section */}
+        <div className="px-4 py-3 border-b border-gray-100">
+          <div className="font-bold text-[15px] mb-2 flex items-center gap-2">
+            <Star size={15} className="text-amber-400" />
+            {t('tourist.poi.reviewsTitle', 'Đánh giá')}
+          </div>
+          {isLoadingReviews && (
+            <div className="text-gray-400 text-[13px] italic">{t('tourist.poi.loadingReviews', 'Đang tải đánh giá...')}</div>
+          )}
+          {!isLoadingReviews && reviews.length === 0 && (
+            <div className="text-gray-400 text-[13px] italic">{t('tourist.poi.noReviews', 'Chưa có đánh giá nào.')}</div>
+          )}
+          {!isLoadingReviews && reviews.length > 0 && (
+            <div className="flex flex-col gap-2">
+              {reviews.map((r, idx) => (
+                <div key={r.id ?? idx} className="bg-white/80 rounded-xl p-3 border border-gray-100 shadow-sm">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-semibold text-gray-800 text-[13px]">{r.author ?? t('tourist.poi.user', 'Người dùng')}</span>
+                    <span className="flex items-center gap-1 text-amber-500 text-[12px] font-bold">
+                      <Star size={13} className="inline-block" /> {r.stars ?? r.rating ?? 0}/5
+                    </span>
+                  </div>
+                  <div className="text-gray-600 text-[13px]">{r.text ?? r.comment ?? ''}</div>
+                  {r.createdAt || r.created_at ? (
+                    <div className="text-gray-400 text-[11px] mt-1">{new Date(r.createdAt || r.created_at).toLocaleString()}</div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          )}
+          {/* Review submission form */}
+          <form className="mt-3 flex flex-col gap-2" onSubmit={handleSubmitReview}>
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] font-semibold">{t('tourist.poi.writeReview', 'Viết đánh giá')}:</span>
+              {[1,2,3,4,5].map(star => (
+                <button
+                  type="button"
+                  key={star}
+                  className={`p-0 m-0 bg-transparent border-none focus:outline-none ${reviewStars >= star ? 'text-amber-400' : 'text-gray-300'}`}
+                  onClick={() => setReviewStars(star)}
+                  aria-label={t('tourist.poi.star', 'Sao') + ' ' + star}
+                >
+                  <Star size={18} fill={reviewStars >= star ? '#FBBF24' : 'none'} />
+                </button>
+              ))}
+            </div>
+            <textarea
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[13px] resize-none focus:ring-2 focus:ring-amber-400"
+              rows={2}
+              maxLength={300}
+              placeholder={t('tourist.poi.writeReviewPlaceholder', 'Chia sẻ cảm nhận của bạn...')}
+              value={reviewText}
+              onChange={e => setReviewText(e.target.value)}
+              required
+              disabled={isSubmitting}
+            />
+            {submitError && <div className="text-red-500 text-[12px]">{submitError}</div>}
+            <button
+              type="submit"
+              className="self-end px-4 py-1.5 rounded-lg bg-amber-500 text-white font-bold text-[13px] mt-1 disabled:opacity-60"
+              disabled={isSubmitting || !reviewText.trim()}
+            >
+              {isSubmitting ? t('tourist.poi.sending', 'Đang gửi...') : t('tourist.poi.submitReview', 'Gửi đánh giá')}
+            </button>
+          </form>
+        </div>
       </div>
 
       {/* ── Action buttons ── */}
@@ -339,7 +477,7 @@ function POIDetailPanel({
               ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               : <Navigation size={16} />
             }
-            {isRouting ? 'Đang vẽ…' : 'Chỉ đường'}
+            {isRouting ? t('tourist.map.drawing', 'Đang vẽ…') : t('tourist.map.navigateTo', 'Chỉ đường')}
           </button>
 
           <button
@@ -356,7 +494,7 @@ function POIDetailPanel({
               ? <div className="w-4 h-4 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />
               : <Headphones size={16} />
             }
-            {isTtsLoading ? 'Đang tải…' : 'Thuyết minh'}
+            {isTtsLoading ? t('tourist.map.loading', 'Đang tải…') : t('tourist.map.listen', 'Thuyết minh')}
           </button>
         </div>
 
@@ -367,14 +505,14 @@ function POIDetailPanel({
             className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-semibold text-[12px] transition-all active:scale-95 bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
           >
             <VoucherIcon size={13} />
-            Nhận Voucher
+            {t('tourist.poi.voucherTitle', 'Nhận Voucher')}
           </button>
           <button
             onClick={() => onShare?.(poiData || poi)}
             className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-semibold text-[12px] transition-all active:scale-95 bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200"
           >
             <Share2 size={13} />
-            Chia sẻ
+            {t('tourist.poi.share', 'Chia sẻ')}
           </button>
         </div>
       </div>

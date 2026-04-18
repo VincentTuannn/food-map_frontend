@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from "react";
 import { useLocation } from 'react-router-dom';
-import { Headphones, MapPin } from 'lucide-react';
+import { Camera, Coffee, Headphones, MapPin } from 'lucide-react';
 import MapView, { Marker, Source, Layer } from "react-map-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { 
@@ -182,10 +182,14 @@ export function MapPage() {
     try {
       setIsTtsLoading(true);
       const ttsOptions = { voice: selectedMurfVoice, gender: selectedMurfGender, speed: ttsRate };
-      const locale = selectedSpeechLocale || langArg || 'vi-VN';
+      // Normalize zh-Hans-CN to zh-CN for TTS
+      let locale = selectedSpeechLocale || langArg || 'vi-VN';
+      if (locale === 'zh-Hans-CN') locale = 'zh-CN';
       const ttsKey = [poi.id, locale, ttsOptions.voice ?? "default", ttsOptions.gender, ttsOptions.speed].join("|");
-      const preferCache = seenTtsKeysRef.current.has(ttsKey);
 
+      // Nếu muốn ưu tiên cache, có thể kiểm tra seenTtsKeysRef, nhưng luôn gọi API để lấy audio mới nhất
+      // Nếu đã có audioUrl trong cache, phát luôn, nhưng vẫn gọi API để cập nhật cache
+      let played = false;
       const cached = getCachedPoiContent?.(poi.id, locale, ttsOptions);
       if (cached?.audioUrl) {
         if (currentAudioRef.current) currentAudioRef.current.pause();
@@ -194,14 +198,15 @@ export function MapPage() {
         audio.playbackRate = ttsRate;
         currentAudioRef.current = audio;
         await audio.play();
-        return;
+        played = true;
       }
 
-      const res = await getPoiContent?.(poi.id, locale, { ...ttsOptions, preferCache });
+      // Luôn gọi API để lấy audio mới nhất
+      const res = await getPoiContent?.(poi.id, locale, { ...ttsOptions });
       seenTtsKeysRef.current.add(ttsKey);
 
       const audioUrl = (res as any)?.data?.audio_url || (res as any)?.audio_url || res?.audioUrl || res?.data?.audioUrl;
-      if (audioUrl) {
+      if (audioUrl && (!played || (cached?.audioUrl !== audioUrl))) {
         if (currentAudioRef.current) currentAudioRef.current.pause();
         window.speechSynthesis.cancel();
         const audio = new Audio(audioUrl);
@@ -217,17 +222,19 @@ export function MapPage() {
     }
 
     if (currentAudioRef.current) currentAudioRef.current.pause();
+    let fallbackLocale = selectedSpeechLocale || langArg || 'vi-VN';
+    if (fallbackLocale === 'zh-Hans-CN') fallbackLocale = 'zh-CN';
     if ("speechSynthesis" in window) {
       const utterance = new SpeechSynthesisUtterance(`${poi.name}. ${text}`);
-      utterance.lang = selectedSpeechLocale || langArg || 'vi-VN';
+      utterance.lang = fallbackLocale;
       utterance.rate = ttsRate;
-      const fallbackVoice = voices.find((x) => x.lang === (selectedSpeechLocale || langArg || 'vi-VN'));
+      const fallbackVoice = voices.find((x) => x.lang === fallbackLocale);
       if (fallbackVoice) utterance.voice = fallbackVoice;
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(utterance);
       return;
     }
-    speak(`${poi.name}. ${text}`, selectedSpeechLocale || langArg || 'vi-VN', voiceURI);
+    speak(`${poi.name}. ${text}`, fallbackLocale, voiceURI);
   };
 
   const handleListen = (poi: any) => {
@@ -267,21 +274,20 @@ export function MapPage() {
     }
   };
 
-  const centerToUser = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        },
-        () => {
-          // Fallback to default if permission denied or error
-          setPosition({ lat: 10.7769, lng: 106.6951 });
-        },
-        { enableHighAccuracy: true, timeout: 10000 }
-      );
-    } else {
-      setPosition({ lat: 10.7769, lng: 106.6951 });
+  const centerToUser = async () => {
+    const vinhKhanhLat = 10.7551;
+    const vinhKhanhLng = 106.6976;
+    setPosition({ lat: vinhKhanhLat, lng: vinhKhanhLng });
+    setUserSetPosition(true);
+    try {
+      const res = await getNearbyPois({ lat: vinhKhanhLat, lng: vinhKhanhLng, radiusMeters: 5000, limit: 30 });
+      setApiPois(res.items || []);
+      showToast({ title: "Đã định vị về phố ẩm thực Vĩnh Khánh (Q4)" });
+    } catch {
+      showToast({ title: "Không tải được điểm gần đây" });
     }
+    // Nếu đang ở mobile, đóng sidebar để xem map rõ hơn
+    if (isMobile) setShowSidebar(false);
   };
 
 
@@ -390,7 +396,10 @@ export function MapPage() {
               >
                 <div className={`relative flex flex-col items-center justify-center transition-all duration-300 origin-bottom ${selectedPoi?.id === poi.id ? 'scale-125 z-10' : 'hover:scale-110 cursor-pointer'}`}>
                   <div className={`flex items-center justify-center w-11 h-11 bg-white/90 backdrop-blur-sm rounded-full shadow-[0_5px_15px_rgba(0,0,0,0.15)] border-2 text-xl ${selectedPoi?.id === poi.id ? 'border-emerald-600 ring-4 ring-emerald-500/30' : 'border-emerald-400'}`}>
-                    {poi.category === 'food' ? '🍜' : poi.category === 'drink' ? '☕' : '📸'}
+                    {poi.category === 'food' && <MapPin size={22} className="text-orange-500" />}
+                    {poi.category === 'drink' && <Coffee size={22} className="text-amber-700" />}
+                    {poi.category === 'sight' && <Camera size={22} className="text-blue-500" />}
+                    {!['food','drink','sight'].includes(poi.category) && <MapPin size={22} className="text-gray-400" />}
                   </div>
                   <div className="w-2.5 h-2.5 mt-1 bg-emerald-700/80 rounded-full shadow-sm" />
                 </div>
@@ -410,7 +419,7 @@ export function MapPage() {
             <Search className="text-emerald-700 mr-2" size={18} />
             <input
               type="text"
-              placeholder="Tìm kiếm địa điểm, ẩm thực..."
+              placeholder={t('tourist.map.searchPlaceholder', 'Tìm kiếm địa điểm, ẩm thực...')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="flex-1 bg-transparent outline-none text-gray-800 placeholder-gray-400 font-medium text-[15px] sm:text-base"
@@ -427,10 +436,10 @@ export function MapPage() {
 
           <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-0.5 px-0.5">
             {[ 
-              { id: 'all', label: 'Tất cả' },
-              { id: 'food', label: 'Ăn uống', icon: '🍜' },
-              { id: 'drink', label: 'Cà phê', icon: '☕' },
-              { id: 'sight', label: 'Tham quan', icon: '📸' }
+              { id: 'all', label: t('tourist.map.all', 'Tất cả') },
+              { id: 'food', label: t('tourist.map.food', 'Ăn uống'), icon: '🍜' },
+              { id: 'drink', label: t('tourist.map.drink', 'Cà phê'), icon: '☕' },
+              { id: 'sight', label: t('tourist.map.sight', 'Tham quan'), icon: '📸' }
             ].map((c) => (
               <button
                 key={c.id}
@@ -540,13 +549,13 @@ export function MapPage() {
                   onClick={() => { setFullDetailsPoi(null); handleGetDirections(fullDetailsPoi); }}
                   className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl transition-colors shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2"
                 >
-                  <Navigation size={20}/> Bắt đầu chỉ đường
+                  <Navigation size={20}/> {t('tourist.map.startDirections', 'Bắt đầu chỉ đường')}
                 </button>
                 <button 
                   onClick={() => handleListen(fullDetailsPoi)}
                   className="px-6 bg-violet-100 hover:bg-violet-200 text-violet-700 font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
                 >
-                  <Headphones size={20}/> Nghe
+                  <Headphones size={20}/> {t('tourist.map.listen', 'Nghe')}
                 </button>
               </div>
             </>

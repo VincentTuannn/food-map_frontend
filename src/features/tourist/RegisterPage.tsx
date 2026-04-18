@@ -62,72 +62,108 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="layout">
-      <main className="main" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', justifyContent: 'center', padding: 16 }}>
-        <div className="card cardPad">
-          <h2 style={{ textAlign: 'center', marginBottom: 24, fontSize: 24, fontWeight: 800 }}>Tạo Tài Khoản</h2>
+    <div className="min-h-screen flex flex-col justify-center items-center bg-[#faf7f2] py-8 px-4 font-sans relative">
+      {/* Background decoration */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-128px] right-[-128px] w-[384px] h-[384px] rounded-full bg-orange-100/60" />
+        <div className="absolute bottom-[-96px] left-[-96px] w-[288px] h-[288px] rounded-full bg-amber-100/70" />
+      </div>
+
+      <main className="w-full max-w-md mx-auto relative z-10">
+        {/* Logo */}
+        <div className="flex items-center justify-center gap-2 mb-8">
+          <div className="w-10 h-10 rounded-xl bg-[#FF5533] flex items-center justify-center text-white font-bold text-lg font-syne">FT</div>
+          <div>
+            <p className="font-bold text-base text-[#222] leading-tight font-syne">FoodTour</p>
+            <p className="text-[11px] text-[#bbb] tracking-widest uppercase font-syne">Admin & Partner</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-xl px-8 py-10 sm:px-10 sm:py-12 border border-gray-100">
+          <h2 className="text-2xl font-extrabold text-center mb-2 text-[#222] font-syne">Tạo tài khoản</h2>
+          <p className="text-center text-[13px] text-[#bbb] mb-7">Khám phá ẩm thực cùng FoodTour!</p>
 
           {errorMsg && (
-            <div style={{ background: 'rgba(255, 0, 0, 0.1)', color: '#ff4d4f', padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
-              {errorMsg}
+            <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-600 rounded-lg px-4 py-2.5 mb-4 text-sm font-medium">
+              <span className="mt-0.5">⚠</span>
+              <span>{errorMsg}</span>
             </div>
           )}
 
-          <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <form onSubmit={handleRegister} className="flex flex-col gap-4">
             <div>
-              <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Email</div>
+              <label className="block text-[13px] font-medium text-[#555] mb-1">Email</label>
               <input
                 type="email"
-                className="input"
-                placeholder="Ví dụ: example@mail.com"
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-base text-gray-800 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition"
+                placeholder="example@mail.com"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
+                autoComplete="email"
+                required
               />
             </div>
 
             <div>
-              <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Số điện thoại</div>
+              <label className="block text-[13px] font-medium text-[#555] mb-1">Số điện thoại</label>
               <input
                 type="number"
-                className="input"
-                placeholder="Ví dụ: 0123456789"
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-base text-gray-800 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition"
+                placeholder="0123456789"
                 value={phoneNumber}
                 onChange={e => setPhoneNumber(e.target.value)}
+                autoComplete="tel"
+                required
               />
             </div>
 
             <div>
-              <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Mật Khẩu</div>
+              <label className="block text-[13px] font-medium text-[#555] mb-1">Mật khẩu</label>
               <input
                 type="password"
-                className="input"
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-base text-gray-800 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition"
                 placeholder="Tối thiểu 6 ký tự"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
+                autoComplete="new-password"
+                required
               />
             </div>
 
             <div>
-              <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Xác Nhận Mật Khẩu</div>
+              <label className="block text-[13px] font-medium text-[#555] mb-1">Xác nhận mật khẩu</label>
               <input
                 type="password"
-                className="input"
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-base text-gray-800 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition"
                 placeholder="Nhập lại mật khẩu"
                 value={confirmPassword}
                 onChange={e => setConfirmPassword(e.target.value)}
+                autoComplete="new-password"
+                required
               />
             </div>
 
-            <button type="submit" className="btn btnPrimary" disabled={loading} style={{ height: 44, marginTop: 10 }}>
-              {loading ? 'Đang xử lý...' : 'Đăng Ký'}
+            <button
+              type="submit"
+              className="mt-2 h-11 rounded-xl bg-[#FF5533] hover:bg-orange-500 text-white font-bold text-base shadow transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              disabled={loading}
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
+                  Đang xử lý...
+                </span>
+              ) : 'Đăng ký'}
             </button>
           </form>
 
-          <div style={{ textAlign: 'center', marginTop: 24, fontSize: 14 }}>
-            <span style={{ color: 'var(--muted)' }}>Đã có tài khoản? </span>
-            <Link to="/login" style={{ color: 'var(--brand)', textDecoration: 'none', fontWeight: 600 }}>Đăng nhập ngay</Link>
+          <div className="mt-8 pt-6 border-t border-[#faf7f2] text-center text-[13px]">
+            <span className="text-[#bbb]">Đã có tài khoản? </span>
+            <Link to="/login" className="text-[#FF5533] font-medium underline">Đăng nhập ngay</Link>
           </div>
         </div>
+
+        <p className="text-center text-xs text-[#bbb] mt-8">© 2025 FoodTour · Khám phá ẩm thực Việt</p>
       </main>
     </div>
   )
