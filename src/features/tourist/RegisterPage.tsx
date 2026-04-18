@@ -34,7 +34,7 @@ export function RegisterPage() {
     setErrorMsg('')
     setLoading(true)
     try {
-      const res = await registerUser(email, password)
+      const res = await registerUser(email, phoneNumber, password)
       if (res.success) {
         // Auto login after register
         const loginRes = await loginUser(email, password)
@@ -47,15 +47,25 @@ export function RegisterPage() {
           nav('/login')
         }
       } else {
-        setErrorMsg('Đăng ký thất bại: ' + JSON.stringify(res))
+        console.error('Đăng ký thất bại từ server:', res)
+        setErrorMsg('Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.')
       }
     } catch (err: any) {
-      // Typically 400 Bad Request if email exists
-      if (err.status === 400) {
-        setErrorMsg('Email có thể đã được sử dụng hoặc không hợp lệ.')
-      } else {
-        setErrorMsg(err.message || 'Lỗi kết nối đến máy chủ')
+      console.error('Lỗi ngoại lệ khi đăng ký:', err)
+      
+      let msg = 'Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau.'
+      if (err?.status === 400) {
+        msg = 'Email hoặc số điện thoại có thể đã được sử dụng hoặc không hợp lệ.'
       }
+      
+      // Override with direct validation msg if present
+      if (err?.details?.details?.[0]?.msg) {
+        msg = err.details.details[0].msg
+      } else if (err?.details?.error) {
+        msg = err.details.error
+      }
+      
+      setErrorMsg(msg)
     } finally {
       setLoading(false)
     }

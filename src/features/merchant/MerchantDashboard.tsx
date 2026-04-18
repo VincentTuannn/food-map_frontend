@@ -28,13 +28,13 @@ export function MerchantDashboard() {
   const handleLogout = useCallback(() => {
     setUserToken(undefined)
     setUserRole(undefined)
-    navigate('/login')
+    navigate('/merchant/login')
   }, [navigate, setUserRole, setUserToken])
 
   useEffect(() => {
-    getMerchantProfile().then((d) => setProfile(d as MerchantProfile)).catch(() => {})
-    getMerchantPois().then((d) => setPois(d as Poi[])).catch(() => {})
-    getMerchantPromotions().then((d) => setPromotions(d as Promotion[])).catch(() => {})
+    getMerchantProfile().then((d) => setProfile(d as MerchantProfile)).catch(() => { })
+    getMerchantPois().then((d) => setPois(d as Poi[])).catch(() => { })
+    getMerchantPromotions().then((d) => setPromotions(d as Promotion[])).catch(() => { })
   }, [])
 
   const pageTitles: Record<string, string> = {

@@ -14,7 +14,7 @@ import MyTourDetailPage from './features/tourist/MyTourDetailPage'
 import { SharedTourPage } from './features/tourist/SharedTourPage'
 import { LoginPage } from './features/tourist/LoginPage'
 import { RegisterPage } from './features/tourist/RegisterPage'
-import  RoutePage  from './features/tourist/RoutePage'
+import RoutePage from './features/tourist/RoutePage'
 import { MerchantDashboard } from './features/merchant/MerchantDashboard'
 import { MerchantRegisterPage } from './features/merchant/MerchantRegisterPage'
 
@@ -42,6 +42,7 @@ function MerchantDashboardWrapper() {
 }
 
 // --- ADMIN MODULES ---
+import { AdminLoginPage } from './features/admin/AdminLoginPage'
 import { AdminLayout } from './features/admin/AdminLayout'
 import { AdminDashboard } from './features/admin/AdminDashboard'
 import { AdminUsers } from './features/admin/AdminUsers'
@@ -53,7 +54,11 @@ import { AdminTours } from './features/admin/AdminTours'
 import { AdminPromotions } from './features/admin/AdminPromotions'
 import { AdminTransactions } from './features/admin/AdminTransactions'
 import { AdminTracking } from './features/admin/AdminTracking'
+<<<<<<< HEAD
 import { AdminActiveUsers } from './features/admin/AdminActiveUsers'
+=======
+import { AdminDevices } from './features/admin/AdminDevices'
+>>>>>>> main
 
 // --- SHARED ---
 import { NotFoundPage } from './shared/ui/NotFoundPage'
@@ -73,11 +78,11 @@ function resolveHomeByRole(role: AuthRole) {
   return '/tourist/start'
 }
 
-function RoleRoute({ allowed }: { allowed: AuthRole[] }) {
+function RoleRoute({ allowed, fallback = "/login" }: { allowed: AuthRole[], fallback?: string }) {
   const token = useAppStore(s => s.userToken)
   const role = useAppStore(s => s.userRole)
-  if (!token) return <Navigate to="/login" replace />
-  if (!role) return <Navigate to="/login" replace />
+  if (!token) return <Navigate to={fallback} replace />
+  if (!role) return <Navigate to={fallback} replace />
   if (!allowed.includes(role)) return <Navigate to={resolveHomeByRole(role)} replace />
   return <Outlet />
 }
@@ -112,6 +117,7 @@ export function App() {
         <Route path="*" element={<MerchantDashboardWrapper />} />
       </Route>
 
+<<<<<<< HEAD
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<AdminDashboard />} />
         
@@ -126,7 +132,25 @@ export function App() {
         <Route path="transactions" element={<AdminTransactions />} />
         <Route path="tracking" element={<AdminTracking />} />
         <Route path="active-users" element={<AdminActiveUsers />} />
+=======
+      <Route path="/admin" element={<RoleRoute allowed={['ADMIN']} fallback="/admin/login" />}>
+        <Route element={<AdminLayout />}>
+          <Route index element={<AdminDashboard />} />
+>>>>>>> main
 
+          <Route path="dashboard" element={<AdminDashboard />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="merchants" element={<AdminMerchants />} />
+          <Route path="accounts" element={<AdminAccounts />} />
+          <Route path="pois" element={<AdminPois />} />
+          <Route path="reviews" element={<AdminReviews />} />
+          <Route path="tours" element={<AdminTours />} />
+          <Route path="promotions" element={<AdminPromotions />} />
+          <Route path="transactions" element={<AdminTransactions />} />
+          <Route path="tracking" element={<AdminTracking />} />
+          <Route path="devices" element={<AdminDevices />} />
+
+        </Route>
       </Route>
 
       {/* 5. CÁC ĐIỀU HƯỚNG CŨ (COMPATIBILITY) */}

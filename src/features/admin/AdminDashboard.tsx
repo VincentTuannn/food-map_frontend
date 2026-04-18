@@ -27,6 +27,15 @@ export function AdminDashboard() {
       const res = await adminApi.getDashboardStats();
       
       if (res.success && res.data) {
+        // Lấy số lượng thiết bị đang kết nối từ In-Memory Map (theo Sequence Diagram)
+        let activeCount = 0;
+        try {
+          const activeRes = await adminApi.getActiveUsers();
+          activeCount = activeRes?.data?.count || activeRes?.count || 0;
+        } catch (e) {
+          console.error("Lỗi đồng bộ đếm thiết bị", e);
+        }
+
         setStats({
           totalUsers: res.data.users || 0,
           totalMerchants: res.data.merchants || 0,
@@ -37,6 +46,9 @@ export function AdminDashboard() {
           totalPromotions: res.data.promotions || 0,
           totalTransactions: res.data.transactions || 0,
           newPoisLast7Days: res.data.newPoisLast7Days || 0,
+          
+          // Tính toán đồng bộ số lượng thiết bị đang kết nối (logic 2 giờ như AdminDevices)
+          activeDevicesCount: activeCount,
           
           // Xử lý mảng trạng thái Địa điểm
           poisByStatus: (res.data.poi_statuses || []).reduce((acc: any, curr: any) => {
@@ -111,7 +123,7 @@ export function AdminDashboard() {
         <StatCard title="Tổng Doanh thu" value={stats?.totalRevenue} icon="💰" color="#00C853" path="/admin/transactions" />
         <StatCard title="Khách du lịch" value={stats?.totalUsers} icon="👥" color="#7B2CBF" path="/admin/users" />
         <StatCard title="Đối tác (Merchant)" value={stats?.totalMerchants} icon="🏪" color="#9D4EDD" path="/admin/merchants" />
-        <StatCard title="Địa điểm (POIs)" value={stats?.totalPois} icon="📍" color="#C77DFF" path="/admin/pois" />
+        <StatCard title="Thiết bị đang kết nối" value={stats?.activeDevicesCount || 0} icon="📱" color="#C77DFF" path="/admin/devices" />
       </div>
 
       {/* 2. HÀNG GIỮA: CHI TIẾT TRẠNG THÁI & TƯƠNG TÁC */}

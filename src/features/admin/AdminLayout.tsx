@@ -15,7 +15,7 @@ const MENU_ITEMS = [
   { path: 'promotions', label: 'Khuyến mãi', icon: '🎁' },
   { path: 'transactions', label: 'Dòng tiền', icon: '💰' },
   { path: 'tracking', label: 'Nhật ký', icon: '🛡️' },
-  { path: 'active-users', label: 'Đang online', icon: '🟢' },
+  { path: 'devices', label: 'Thiết bị kết nối', icon: '📱' },
 ];
 
 export function AdminLayout() {
@@ -29,7 +29,7 @@ export function AdminLayout() {
     if (window.confirm('Bạn có chắc chắn muốn đăng xuất?')) {
       localStorage.removeItem('userToken');
       localStorage.removeItem('userRole');
-      navigate('/login');
+      navigate('/admin/login');
       window.location.reload();
     }
   };

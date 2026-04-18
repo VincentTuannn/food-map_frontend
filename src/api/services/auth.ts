@@ -17,9 +17,16 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
   })
 }
 
-export async function registerUser(email: string, password: string): Promise<AuthResponse> {
+export async function registerUser(email: string, phone: string, password: string): Promise<AuthResponse> {
   return apiFetch<AuthResponse>('/auth/register/user', {
     method: 'POST',
-    json: { email, password },
+    json: { email, phone, password },
+  })
+}
+
+export async function registerMerchant(email: string, business_name: string, password: string): Promise<AuthResponse> {
+  return apiFetch<AuthResponse>('/auth/register/merchant', {
+    method: 'POST',
+    json: { email, business_name, password },
   })
 }
